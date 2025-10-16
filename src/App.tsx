@@ -1,35 +1,50 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState('');
-  const [name, setName] = useState('');
+import { testplate } from './data/testplate';
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke('greet', { name }));
+import './App.css';
+
+const videoSrc = new URL('/assets/sample.mp4', import.meta.url).href;
+const generatedSrc = new URL('/bin/out.mp4', import.meta.url).href;
+
+function App() {
+
+  async function renderBasicVideo(templateImage: string, videoFile: string, outputFile: string) {
+    const temp = await invoke('renderBasicVideo', { templateImage, videoFile, outputFile });
+    alert(temp);
   }
 
   return (
-    <main className='container'>
+    <div>
 
-      <form
-        className='row'
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id='greet-input'
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder='Enter a name...'
+      <div>
+        <h2>Video</h2>
+        <video className='pane'
+          src={videoSrc} controls={true}
         />
-        <button type='submit'>Greet</button>
-      </form>
-      <p>{greetMsg}</p>
+        <h2>Template</h2>
+        <img className='pane'
+          src={testplate.background}
+        />
+      </div>
 
-    </main>
+      <div>
+        <button
+          onClick={() => renderBasicVideo(`${testplate.background}`, `${videoSrc}`, '/media/razzula/media2/Programming/Web/stagehand/bin/out.mp4')}
+          >
+          Render Video!
+        </button>
+      </div>
+
+      <div>
+        <h2>Generated</h2>
+        <video className='pane'
+          src={generatedSrc} controls={true}
+        />
+      </div>
+
+    </div>
   );
 }
 
