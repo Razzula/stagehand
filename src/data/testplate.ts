@@ -1,13 +1,16 @@
 import { Template } from "../Template";
 
-const testplateBackground = new URL('/assets/testplate.png', import.meta.url).href;
-const kiwiHead = new URL('/assets/kiwihead.png', import.meta.url).href;
-
 export const testplate: Template = {
-    background: testplateBackground,
+    background: {
+        image: '/assets/testplate.png',
+        width: 1250,
+        height: 958,
+    },
     heads: [
         {
-            image: kiwiHead,
+            image: '/assets/kiwihead.png',
+            width: 205,
+            height: 130,
             origin: {
                 x: 909,
                 y: 251 ,
