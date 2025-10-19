@@ -1,10 +1,16 @@
 export interface Template {
-    background: string;
+    background: {
+        image: string;
+        width: number;
+        height: number;
+    };
     heads: Head[];
 }
 
 export interface Head {
     image: string;
+    width: number;
+    height: number;
     origin: {
         x: number;
         y: number;

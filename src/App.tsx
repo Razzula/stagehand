@@ -1,18 +1,45 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 
+import { sceneFrameFromTemplate, sceneFromTemplate } from './stage/director';
+
 import { testplate } from './data/testplate';
-
 import './App.css';
-import CanvasScene from './CanvasScene';
+import { Scene } from './stage/stage';
 
-const videoSrc = new URL('/assets/sample.mp4', import.meta.url).href;
-const generatedSrc = new URL('/bin/out.mp4', import.meta.url).href;
+const videoSrc = '/assets/sample.mp4';
+const generatedSrc2 = new URL('/bin/out2.mp4', import.meta.url).href;
+
+const videoData = {
+    duration: 28, // seconds
+    fps: 30,
+    height: 1080,
+    width: 1920,
+}
 
 function App() {
 
-    async function renderBasicVideo(templateImage: string, videoFile: string, outputFile: string) {
-        const temp = await invoke('renderBasicVideo', { templateImage, videoFile, outputFile });
+    const [frames, setFrames] = useState<string[]>([]);
+
+    useEffect(() => {
+        testFrameGeneration();
+    }, []);
+    
+    async function testFrameGeneration() {
+        const renderedFrames: string[] = [];
+        for (let i = 0; i < 5; i++) {
+            const frame = sceneFrameFromTemplate(testplate, i * 30, i);
+            // console.log(`frame${i}`, frame);
+            const render = await invoke('renderFrame', { payload: frame });
+            // console.log(`render${i}`, render);
+            renderedFrames.push(render as string);
+            setFrames(renderedFrames);
+        }
+        console.log(renderedFrames);
+    }
+
+    async function renderVideo(payload: Scene[]) {
+        const temp = await invoke('renderVideo', { payload });
         alert(temp);
     }
 
@@ -22,32 +49,40 @@ function App() {
             <div>
                 <h2>Video</h2>
                 <video className='pane'
-                    src={videoSrc} controls={true}
+                    src={new URL(videoSrc, import.meta.url).href} controls={true}
                 />
                 <h2>Template</h2>
                 <img className='pane'
-                    src={testplate.background}
+                    src={new URL(testplate.background.image, import.meta.url).href}
                 />
             </div>
 
             <div>
-                <h2>React Render</h2>
-                <CanvasScene
-                    template={testplate}
-                />
+                <h2>Generated Frames</h2>
+                {
+                    frames.map((src, idx) => (
+                        <div key={idx}>
+                            <img className='pane'
+                                src={src}
+                            />
+                        </div>
+                    ))
+                }
             </div>
 
             <div>
-                <h2>FFMPEG Render</h2>
+                <h2>Render</h2>
                 <div>
                     <button
-                        onClick={() => renderBasicVideo(testplate.background, videoSrc, '/media/razzula/media2/Programming/Web/stagehand/bin/out.mp4')}
+                        onClick={() => renderVideo(
+                            sceneFromTemplate(testplate, videoData.duration, videoData.fps)
+                        )}
                         >
                         Render Video!
                     </button>
                 </div>
                 <video className='pane'
-                    src={generatedSrc} controls={true}
+                    src={generatedSrc2} controls={true}
                 />
             </div>
 
