@@ -1,6 +1,11 @@
 import { Template } from "../Template";
 
 export const testplate: Template = {
+    meta: {
+        fps: 30,
+        width: 1920,
+        height: 1080,
+    },
     background: {
         image: '/assets/testplate.png',
         width: 1250,
@@ -30,4 +35,14 @@ export const testplate: Template = {
             },
         }
     ],
+    video: {
+        id: 'sample',
+        width: 192,
+        height: 108,
+        origin: {
+            x: 0,
+            y: 0,
+        },
+        paths: {},
+    },
 }

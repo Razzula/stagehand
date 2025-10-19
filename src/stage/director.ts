@@ -20,7 +20,7 @@ export function scriptFromTemplate(template: Template, frame: number, frameTimeS
 
     props.push({
         prop: 'background',
-        type: 'image',
+        type: 'paste',
         x: origin.x,
         y: origin.y,
         width: template.background.width,
@@ -50,29 +50,45 @@ export function scriptFromTemplate(template: Template, frame: number, frameTimeS
         });
     }
 
-    return { 
+    return {
         id,
         props,
     };
 }
 
-export function sceneFromTemplate(template: Template, durationSec: number, fps: number, frameW?: number, frameH?: number): Scene {
-    
+export interface CustomVideoAsset {
+    id: string;
+    width: number;
+    height: number;
+    durationSec?: number;
+}
+
+export function sceneFromTemplate(template: Template, customAssets: CustomVideoAsset[]): Scene {
+
     const props: Record<string, Prop> = {};
     const frames: Script[] = [];
+
+    const fps = template.meta.fps;
+    const frameW = template.meta.width;
+    const frameH = template.meta.height;
+
+    // determine duration
+    const durationSec = Math.max(...customAssets.map(a => a.durationSec ?? 0));
 
     // setup props
     props['background'] = {
         id: 'background',
-        src: `/media/razzula/media2/Programming/Web/stagehand/public/${template.background.image}`,
+        src: `/home/razzula/repos/stagehand/public/${template.background.image}`,
     };
     for (const head of template.heads) {
         props[head.id] = {
             id: head.id,
-            src: `/media/razzula/media2/Programming/Web/stagehand/public/${head.image}`,
+            src: `/home/razzula/repos/stagehand/public/${head.image}`,
         };
     }
-     
+
+    // handle audio
+
     // calculate frames
     const totalFrames = durationSec * fps;
     for (let i = 0; i < totalFrames; i++) {
@@ -82,6 +98,7 @@ export function sceneFromTemplate(template: Template, durationSec: number, fps: 
     }
 
     return {
+        fps,
         canvasSize: {
             width: frameW ?? template.background.width,
             height: frameH ?? template.background.height,
