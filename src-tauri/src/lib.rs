@@ -3,14 +3,14 @@
 
 use std::clone::Clone;
 use std::collections::HashMap;
-use std::io::{Cursor, Write};
+use std::io::{Cursor, Read, Write};
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Instant;
 
 use base64::Engine;
-use image::{DynamicImage, RgbaImage, ImageFormat};
+use image::{RgbaImage, ImageFormat};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 
@@ -72,6 +72,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             renderFrame,
             renderVideo,
+            extractAudio,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -212,6 +213,43 @@ async fn renderVideo(payload: serde_json::Value) -> Result<String, String> {
 
     Ok(output_file.to_string())
 }
+
+#[tauri::command]
+async fn extractAudio(videoPath: String, audioSampleRate: u32) -> Result<Vec<f32>, String> {
+
+    let mut ffmpeg = std::process::Command::new("ffmpeg")
+        .args([
+            "-i", &videoPath,
+            "-ac", "1",       // mono
+            "-f", "f32le",    // raw float PCM
+            "-ar", &audioSampleRate.to_string(),
+            "-",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| format!("failed to spawn ffmpeg: {}", e))?;
+
+    let stdout = ffmpeg.stdout.as_mut().ok_or("failed to open ffmpeg stdout")?;
+    let mut buf = Vec::new();
+    stdout.read_to_end(&mut buf)
+        .map_err(|e| format!("failed to read ffmpeg stdout: {}", e))?;
+
+    let status = ffmpeg.wait()
+        .map_err(|e| format!("ffmpeg wait failed: {}", e))?;
+    if !status.success() {
+        return Err(format!("ffmpeg exited with {:?}", status.code()));
+    }
+
+    // decode to f32 samples
+    let mut floats = Vec::with_capacity(buf.len() / 4);
+    for chunk in buf.chunks_exact(4) {
+        let sample = f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+        floats.push(sample);
+    }
+    Ok(floats)
+}
+
 
 fn loadProps(props: &HashMap<String, Prop>) -> Result<HashMap<String, LoadedProp>, String> {
     let mut loadedProps: HashMap<String, LoadedProp> = HashMap::new();

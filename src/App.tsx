@@ -7,14 +7,15 @@ import { testplate } from './data/testplate';
 import './App.css';
 import { Scene } from './stage/stage';
 
-const videoSrc = '/assets/sample.mp4';
 const generatedSrc2 = new URL('/bin/out2.mp4', import.meta.url).href;
 
 const videoData: CustomVideoAsset = {
     id: 'sample',
+    src: '/assets/sample.mp4',
     height: 1080,
     width: 1920,
     durationSec: 28,
+    audioSampleRate: 48000,
 }
 
 function App() {
@@ -27,7 +28,7 @@ function App() {
 
     async function testFrameGeneration() {
         const renderedFrames: string[] = [];
-        const scene = sceneFromTemplate(testplate, [videoData]);
+        const scene = await sceneFromTemplate(testplate, [videoData]);
         for (let i = 0; i < 1; i++) {
             const frame = scene.frames[i*30]; // every second
             const frameAsScene: Scene = {
@@ -51,7 +52,7 @@ function App() {
             <div>
                 <h2>Video</h2>
                 <video className='pane'
-                    src={new URL(videoSrc, import.meta.url).href} controls={true}
+                    src={new URL(videoData.src, import.meta.url).href} controls={true}
                 />
                 <h2>Template</h2>
                 <img className='pane'
@@ -70,10 +71,8 @@ function App() {
                 <h2>Render</h2>
                 <div>
                     <button
-                        onClick={() => renderVideo(
-                            sceneFromTemplate(testplate, [videoData])
-                        )}
-                        >
+                        onClick={() => sceneFromTemplate(testplate, [videoData]).then(scene => renderVideo(scene)) }
+                    >
                         Render Video!
                     </button>
                 </div>
