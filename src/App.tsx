@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 
-import { scriptFromTemplate, sceneFromTemplate } from './stage/director';
+import { scriptFromTemplate, sceneFromTemplate, CustomVideoAsset } from './stage/director';
 
 import { testplate } from './data/testplate';
 import './App.css';
@@ -10,11 +10,11 @@ import { Scene } from './stage/stage';
 const videoSrc = '/assets/sample.mp4';
 const generatedSrc2 = new URL('/bin/out2.mp4', import.meta.url).href;
 
-const videoData = {
-    duration: 28, // seconds
-    fps: 30,
+const videoData: CustomVideoAsset = {
+    id: 'sample',
     height: 1080,
     width: 1920,
+    durationSec: 28,
 }
 
 function App() {
@@ -24,11 +24,11 @@ function App() {
     useEffect(() => {
         testFrameGeneration();
     }, []);
-    
+
     async function testFrameGeneration() {
         const renderedFrames: string[] = [];
-        const scene = sceneFromTemplate(testplate, videoData.duration, videoData.fps);
-        for (let i = 0; i < 5; i++) {
+        const scene = sceneFromTemplate(testplate, [videoData]);
+        for (let i = 0; i < 1; i++) {
             const frame = scene.frames[i*30]; // every second
             const frameAsScene: Scene = {
                 ...scene,
@@ -60,16 +60,10 @@ function App() {
             </div>
 
             <div>
-                <h2>Generated Frames</h2>
-                {
-                    frames.map((src, idx) => (
-                        <div key={idx}>
-                            <img className='pane'
-                                src={src}
-                            />
-                        </div>
-                    ))
-                }
+                <h2>Preview</h2>
+                <img className='pane'
+                    src={frames[0]}
+                />
             </div>
 
             <div>
@@ -77,7 +71,7 @@ function App() {
                 <div>
                     <button
                         onClick={() => renderVideo(
-                            sceneFromTemplate(testplate, videoData.duration, videoData.fps)
+                            sceneFromTemplate(testplate, [videoData])
                         )}
                         >
                         Render Video!

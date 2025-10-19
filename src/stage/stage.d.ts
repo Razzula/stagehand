@@ -1,7 +1,8 @@
-export type PropType = 'image' | 'clear';
+export type PropType = 'image' | 'paste';
 
 export interface Scene {
     id?: string;
+    fps: number;
     canvasSize: {
         // pixels
         width: number;
