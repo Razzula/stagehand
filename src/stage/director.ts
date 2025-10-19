@@ -1,7 +1,13 @@
-import { Template } from "../Template";
-import { Prop, Scene, Script, StageDirection } from "./stage";
+import { Template } from '../Template';
+import { Prop, Scene, Script, StageDirection } from './stage';
+import { invoke } from '@tauri-apps/api/core';
 
-export function scriptFromTemplate(template: Template, frame: number, frameTimeSec: number, frameW?: number, frameH?: number): Script {
+export function scriptFromTemplate(
+    template: Template,
+    frame: number, frameTimeSec: number,
+    audioVolume?: number,
+    frameW?: number, frameH?: number
+): Script {
 
     const id = `frame_${frame}`;
 
@@ -14,7 +20,14 @@ export function scriptFromTemplate(template: Template, frame: number, frameTimeS
     if (frameH === undefined) {
         frameH = canvasH;
     }
+
     const origin = { x: 0, y: 0 }; // XXX
+    if (canvasW < frameW) {
+        origin.x = Math.floor((frameW - canvasW) / 2);
+    }
+    if (canvasH < frameH) {
+        origin.y = Math.floor((frameH - canvasH) / 2);
+    }
 
     const props: StageDirection[] = [];
 
@@ -35,10 +48,8 @@ export function scriptFromTemplate(template: Template, frame: number, frameTimeS
         const w = Math.round((head.width / canvasW) * canvasW); // XXX
         const h = Math.round((head.height / canvasH) * canvasH); // XXX
 
-        // bob head according to...
-        // random fluctuation
-        // TODO: audio
-        const bob = Math.round(((Math.sin(frameTimeSec * 8) + 1) / 2) * -20);
+        // bob head according to audio volume
+        const bob = Math.round((audioVolume ?? 0) * -40);
 
         props.push({
             prop: head.id,
@@ -58,12 +69,14 @@ export function scriptFromTemplate(template: Template, frame: number, frameTimeS
 
 export interface CustomVideoAsset {
     id: string;
+    src: string
     width: number;
     height: number;
     durationSec?: number;
+    audioSampleRate: number;
 }
 
-export function sceneFromTemplate(template: Template, customAssets: CustomVideoAsset[]): Scene {
+export async function sceneFromTemplate(template: Template, customAssets: CustomVideoAsset[]): Promise<Scene> {
 
     const props: Record<string, Prop> = {};
     const frames: Script[] = [];
@@ -88,12 +101,25 @@ export function sceneFromTemplate(template: Template, customAssets: CustomVideoA
     }
 
     // handle audio
+    const floatSamples = await invoke('extractAudio', {
+        videoPath: `/home/razzula/repos/stagehand/public/${customAssets[0].src}`,
+        audioSampleRate: customAssets[0].audioSampleRate,
+    }) as Float32Array;
+    console.log('length of floatSamples:', floatSamples.length);
+    const volumesPerFrame = computeRMSPerFrame(floatSamples, customAssets[0].audioSampleRate, fps);
+    console.log('length of volumes:', volumesPerFrame.length);
+    console.log(volumesPerFrame[0], volumesPerFrame[1], volumesPerFrame[2], volumesPerFrame[3], volumesPerFrame[4]);
 
     // calculate frames
     const totalFrames = durationSec * fps;
     for (let i = 0; i < totalFrames; i++) {
         const frameTimeSec = i / fps;
-        const script = scriptFromTemplate(template, i+1, frameTimeSec, frameW, frameH);
+        const script = scriptFromTemplate(
+            template,
+            i + 1, frameTimeSec,
+            volumesPerFrame[i] ?? 0,
+            frameW, frameH,
+        );
         frames.push(script);
     }
 
@@ -106,4 +132,22 @@ export function sceneFromTemplate(template: Template, customAssets: CustomVideoA
         props,
         frames,
     };
+}
+
+function computeRMSPerFrame(samples: Float32Array, sampleRate: number, fps: number) {
+    const samplesPerFrame = Math.round(sampleRate / fps);
+    const totalFrames = Math.ceil(samples.length / samplesPerFrame);
+    const volumes = new Float32Array(totalFrames);
+
+    for (let f = 0; f < totalFrames; f++) {
+        const start = f * samplesPerFrame;
+        const end = Math.min(start + samplesPerFrame, samples.length);
+        let sumSq = 0;
+        for (let i = start; i < end; i++) {
+            const v = samples[i];
+            sumSq += v * v;
+        }
+        volumes[f] = Math.sqrt(sumSq / (end - start || 1));
+    }
+    return volumes;
 }
