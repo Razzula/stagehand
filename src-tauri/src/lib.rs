@@ -223,6 +223,8 @@ async fn extractAudio(videoPath: String, audioSampleRate: u32) -> Result<Vec<f32
             "-ac", "1",       // mono
             "-f", "f32le",    // raw float PCM
             "-ar", &audioSampleRate.to_string(),
+            "-ss", "0",
+            // "-t", "duration",
             "-",
         ])
         .stdout(Stdio::piped())

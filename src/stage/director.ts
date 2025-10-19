@@ -112,6 +112,8 @@ export async function sceneFromTemplate(template: Template, customAssets: Custom
 
     // calculate frames
     const totalFrames = durationSec * fps;
+    console.log('totalFrames:', totalFrames);
+    console.log(volumesPerFrame.length);
     for (let i = 0; i < totalFrames; i++) {
         const frameTimeSec = i / fps;
         const script = scriptFromTemplate(
