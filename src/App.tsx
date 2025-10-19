@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 
-import { sceneFrameFromTemplate, sceneFromTemplate } from './stage/director';
+import { scriptFromTemplate, sceneFromTemplate } from './stage/director';
 
 import { testplate } from './data/testplate';
 import './App.css';
@@ -27,18 +27,20 @@ function App() {
     
     async function testFrameGeneration() {
         const renderedFrames: string[] = [];
+        const scene = sceneFromTemplate(testplate, videoData.duration, videoData.fps);
         for (let i = 0; i < 5; i++) {
-            const frame = sceneFrameFromTemplate(testplate, i * 30, i);
-            // console.log(`frame${i}`, frame);
-            const render = await invoke('renderFrame', { payload: frame });
-            // console.log(`render${i}`, render);
+            const frame = scene.frames[i*30]; // every second
+            const frameAsScene: Scene = {
+                ...scene,
+                frames: [frame],
+            };
+            const render = await invoke('renderFrame', { payload: frameAsScene });
             renderedFrames.push(render as string);
             setFrames(renderedFrames);
         }
-        console.log(renderedFrames);
     }
 
-    async function renderVideo(payload: Scene[]) {
+    async function renderVideo(payload: Scene) {
         const temp = await invoke('renderVideo', { payload });
         alert(temp);
     }

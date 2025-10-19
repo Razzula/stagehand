@@ -8,6 +8,7 @@ export const testplate: Template = {
     },
     heads: [
         {
+            id: 'kiwi',
             image: '/assets/kiwihead.png',
             width: 205,
             height: 130,

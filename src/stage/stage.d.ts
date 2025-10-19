@@ -1,18 +1,32 @@
 export type PropType = 'image' | 'clear';
 
 export interface Scene {
-    id: string;
+    id?: string;
     canvasSize: {
         // pixels
         width: number;
         height: number;
     };
-    props: Prop[];      // draw in array order (0 bottom, last top)
+    props: Record<string, Prop>;
+
+    frames: Script[],
+
     outputPath?: string;
 }
 
+export interface Script {
+    id: string;
+    props: StageDirection[]; // draw in array order (0 bottom, last top)
+}
+
 export interface Prop {
+    id: string;
+    src: string;
+}
+
+export interface StageDirection {
     id?: string;
+    prop: Prop['id'];
     type: PropType;
 
     // common
@@ -20,7 +34,4 @@ export interface Prop {
     y: number;          // pixel top-left
     width: number;      // pixel
     height: number;     // pixel
-
-    // image-specific
-    src?: string;       // absolute path or file://
 }

@@ -8,6 +8,7 @@ export interface Template {
 }
 
 export interface Head {
+    id: string;
     image: string;
     width: number;
     height: number;

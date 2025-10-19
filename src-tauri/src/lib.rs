@@ -2,22 +2,24 @@
 #![allow(non_snake_case)]
 
 use std::clone::Clone;
-use std::process::Command;
 use std::path::PathBuf;
+use std::collections::HashMap;
 
 use base64::Engine;
 use serde::{Deserialize, Serialize};
-use image::{DynamicImage, RgbaImage, GenericImage};
+use image::{DynamicImage, RgbaImage};
 use once_cell::sync::Lazy;
 
 #[derive(Deserialize, Serialize)]
 struct Scene {
-    id: String,
+    id: Option<String>,
     canvasSize: CanvasSize,
-    props: Vec<Prop>,
+    props: HashMap<String, Prop>,
+    frames: Vec<Script>,
+    outputPath: Option<String>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 struct CanvasSize {
     width: u32,
     height: u32,
@@ -25,14 +27,26 @@ struct CanvasSize {
 
 #[derive(Deserialize, Serialize, Clone)]
 struct Prop {
+    id: String,
+    src: String,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+struct Script {
+    id: String,
+    props: Vec<StageDirection>,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+struct StageDirection {
     id: Option<String>,
+    prop: String,
     #[serde(rename = "type")]
-    propType: String, // "image" | "clear"
+    prop_type: String, // "image" | "clear"
     x: u32,
     y: u32,
     width: u32,
     height: u32,
-    src: Option<String>,
 }
 
 static TEMP_DIR: Lazy<PathBuf> = Lazy::new(|| {
@@ -54,33 +68,36 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-async fn generateFrame(payload: serde_json::Value) -> Result<String, String> {
+async fn generateFrame(payload: serde_json::Value, props: HashMap<String, Prop>, canvasSize: CanvasSize) -> Result<String, String> {
     // spawn blocking compute
     let path = tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
         // 1. deserialize payload -> TemplatePayload (serde)
-        let scene: Scene = serde_json::from_value(payload)
+        let script: Script = serde_json::from_value(payload)
             .map_err(|e| format!("failed to deserialize: {}", e))?;
 
         // 2. load images: image::open(path)
-        let mut images: Vec<(Prop, DynamicImage)> = Vec::new();
-        for prop in scene.props.iter() {
-            if (prop.propType == "image") {
-                let src = prop.src.as_ref().ok_or("missing src")?;
+        let mut images: Vec<(StageDirection, DynamicImage)> = Vec::new();
+        for stageDirection in script.props.iter() {
+            if (stageDirection.prop_type == "image") {
+                let propID = &stageDirection.prop;
+                let prop = props.get(propID).ok_or(format!("unknown prop ID: {}", propID))?;
+                let src = &prop.src; 
+                // XXX really, we should load these all in batch before rendering frames
                 let img = image::open(src).map_err(|e| format!("failed to open {}: {}", src, e))?;
-                images.push((prop.clone(), img));
+                images.push((stageDirection.clone(), img));
             }
         }
 
-        let mut canvas = RgbaImage::new(scene.canvasSize.width, scene.canvasSize.height);
+        let mut canvas = RgbaImage::new(canvasSize.width, canvasSize.height);
 
         // 3. composite images
-        for (prop, img) in images.iter() {
+        for (stageDirection, img) in images.iter() {
             // compute coordinates
-            let px = prop.x.min(scene.canvasSize.width.saturating_sub(prop.width));
-            let py = prop.y.min(scene.canvasSize.height.saturating_sub(prop.height));
+            let px = stageDirection.x.min(canvasSize.width.saturating_sub(stageDirection.width));
+            let py = stageDirection.y.min(canvasSize.height.saturating_sub(stageDirection.height));
 
             // scale image if needed to prop.width/prop.height
-            let img_resized = img.resize_exact(prop.width, prop.height, image::imageops::FilterType::Nearest);
+            let img_resized = img.resize_exact(stageDirection.width, stageDirection.height, image::imageops::FilterType::Nearest);
 
             // overlay on canvas
             image::imageops::overlay(&mut canvas, &img_resized, px as i64, py as i64);
@@ -88,7 +105,7 @@ async fn generateFrame(payload: serde_json::Value) -> Result<String, String> {
 
         // 4. write composited canvas to temp file
         let temp_file = TEMP_DIR
-            .join(scene.id)
+            .join(script.id)
             .with_extension("png");
         DynamicImage::ImageRgba8(canvas)
             .save(&temp_file)
@@ -105,8 +122,20 @@ async fn generateFrame(payload: serde_json::Value) -> Result<String, String> {
 
 #[tauri::command]
 async fn renderFrame(payload: serde_json::Value) -> Result<String, String> {
+    let scene: Scene = serde_json::from_value(payload)
+            .map_err(|e| format!("failed to deserialize: {}", e))?;
+
+    let frame_value: serde_json::Value = serde_json::to_value(&scene.frames[0])
+        .map_err(|e| format!("failed to convert frame to JSON: {}", e))?;
+
+
     // render the frame
-    let temp_file = generateFrame(payload).await?;
+    let temp_file = generateFrame(
+        frame_value,
+        scene.props.clone(),
+        scene.canvasSize.clone(),
+    ).await?;
+
     // return base64 data URL
     let bytes = std::fs::read(&temp_file)
         .map_err(|e| format!("failed to read temp PNG: {}", e))?;
@@ -116,14 +145,17 @@ async fn renderFrame(payload: serde_json::Value) -> Result<String, String> {
 
 #[tauri::command]
 async fn renderVideo(payload: serde_json::Value) -> Result<String, String> {
-    // 1. deserialise payload as Vec<Scene>
-    let scenes: Vec<Scene> = serde_json::from_value(payload)
-        .map_err(|e| format!("failed to deserialize scenes: {}", e))?;
-
+    // 1. deserialise payload as Scene
+    let scene: Scene = serde_json::from_value(payload)
+            .map_err(|e| format!("failed to deserialize: {}", e))?;
 
     // 2. generate frames
-    for scene in scenes.into_iter() {
-        let frame_path = generateFrame(serde_json::to_value(scene).unwrap()).await?;
+    for frame in scene.frames.into_iter() {
+        let frame_path = generateFrame(
+            serde_json::to_value(frame).unwrap(),
+            scene.props.clone(),
+            scene.canvasSize.clone(),
+        ).await?;
     }
 
     // let output_file = TEMP_DIR.join("output.mp4"); // XXX

@@ -1,7 +1,7 @@
 import { Template } from "../Template";
-import { Prop, Scene } from "./stage";
+import { Prop, Scene, Script, StageDirection } from "./stage";
 
-export function sceneFrameFromTemplate(template: Template, frame: number, frameTimeSec: number, frameW?: number, frameH?: number): Scene {
+export function scriptFromTemplate(template: Template, frame: number, frameTimeSec: number, frameW?: number, frameH?: number): Script {
 
     const id = `frame_${frame}`;
 
@@ -16,11 +16,11 @@ export function sceneFrameFromTemplate(template: Template, frame: number, frameT
     }
     const origin = { x: 0, y: 0 }; // XXX
 
-    const props: Prop[] = [];
+    const props: StageDirection[] = [];
 
     props.push({
+        prop: 'background',
         type: 'image',
-        src: `/media/razzula/media2/Programming/Web/stagehand/public/${template.background.image}`,
         x: origin.x,
         y: origin.y,
         width: template.background.width,
@@ -38,11 +38,11 @@ export function sceneFrameFromTemplate(template: Template, frame: number, frameT
         // bob head according to...
         // random fluctuation
         // TODO: audio
-        const bob = Math.round(((Math.sin(frameTimeSec) + 1) / 2) * -20);
+        const bob = Math.round(((Math.sin(frameTimeSec * 8) + 1) / 2) * -20);
 
         props.push({
+            prop: head.id,
             type: 'image',
-            src: `/media/razzula/media2/Programming/Web/stagehand/public/${head.image}`,
             x: px,
             y: py + bob,
             width: w,
@@ -52,20 +52,41 @@ export function sceneFrameFromTemplate(template: Template, frame: number, frameT
 
     return { 
         id,
-        canvasSize: { width: canvasW, height: canvasH },
         props,
     };
 }
 
-export function sceneFromTemplate(template: Template, durationSec: number, fps: number, frameW?: number, frameH?: number): Scene[] {
-    const frames: Scene[] = [];
-    const totalFrames = durationSec * fps;
+export function sceneFromTemplate(template: Template, durationSec: number, fps: number, frameW?: number, frameH?: number): Scene {
+    
+    const props: Record<string, Prop> = {};
+    const frames: Script[] = [];
 
+    // setup props
+    props['background'] = {
+        id: 'background',
+        src: `/media/razzula/media2/Programming/Web/stagehand/public/${template.background.image}`,
+    };
+    for (const head of template.heads) {
+        props[head.id] = {
+            id: head.id,
+            src: `/media/razzula/media2/Programming/Web/stagehand/public/${head.image}`,
+        };
+    }
+     
+    // calculate frames
+    const totalFrames = durationSec * fps;
     for (let i = 0; i < totalFrames; i++) {
         const frameTimeSec = i / fps;
-        const scene = sceneFrameFromTemplate(template, i+1, frameTimeSec, frameW, frameH);
-        frames.push(scene);
+        const script = scriptFromTemplate(template, i+1, frameTimeSec, frameW, frameH);
+        frames.push(script);
     }
 
-    return frames;
+    return {
+        canvasSize: {
+            width: frameW ?? template.background.width,
+            height: frameH ?? template.background.height,
+        },
+        props,
+        frames,
+    };
 }
