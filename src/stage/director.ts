@@ -2,6 +2,8 @@ import { Template } from '../Template';
 import { Prop, Scene, Script, StageDirection } from './stage';
 import { invoke } from '@tauri-apps/api/core';
 
+const STAGEHAND_DIR = '/media/razzula/media2/Programming/Web/';
+
 export function scriptFromTemplate(
     template: Template,
     frame: number, frameTimeSec: number,
@@ -91,18 +93,18 @@ export async function sceneFromTemplate(template: Template, customAssets: Custom
     // setup props
     props['background'] = {
         id: 'background',
-        src: `/home/razzula/repos/stagehand/public/${template.background.image}`,
+        src: `${STAGEHAND_DIR}/stagehand/public/${template.background.image}`,
     };
     for (const head of template.heads) {
         props[head.id] = {
             id: head.id,
-            src: `/home/razzula/repos/stagehand/public/${head.image}`,
+            src: `${STAGEHAND_DIR}/stagehand/public/${head.image}`,
         };
     }
 
     // handle audio
     const floatSamples = await invoke('extractAudio', {
-        videoPath: `/home/razzula/repos/stagehand/public/${customAssets[0].src}`,
+        videoPath: `${STAGEHAND_DIR}/stagehand/public/${customAssets[0].src}`,
         audioSampleRate: customAssets[0].audioSampleRate,
     }) as Float32Array;
     console.log('length of floatSamples:', floatSamples.length);
@@ -113,7 +115,7 @@ export async function sceneFromTemplate(template: Template, customAssets: Custom
     // calculate frames
     const totalFrames = durationSec * fps;
     console.log('totalFrames:', totalFrames);
-    console.log(volumesPerFrame.length);
+    console.log('audioFrames:', volumesPerFrame.length);
     for (let i = 0; i < totalFrames; i++) {
         const frameTimeSec = i / fps;
         const script = scriptFromTemplate(
