@@ -16,7 +16,7 @@ const videoData: CustomVideoAsset = {
     width: 1920,
     durationSec: 28,
     audioSampleRate: 48000,
-}
+};
 
 function App() {
 

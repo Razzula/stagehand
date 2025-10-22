@@ -3,6 +3,7 @@
 
 use std::clone::Clone;
 use std::collections::HashMap;
+use std::env;
 use std::io::{Cursor, Read, Write};
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -10,6 +11,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use base64::Engine;
+use dotenvy::dotenv;
 use image::{RgbaImage, ImageFormat};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
@@ -65,6 +67,11 @@ static TEMP_DIR: Lazy<PathBuf> = Lazy::new(|| {
     dir
 });
 
+static PROJECT_DIR: Lazy<String> = Lazy::new(|| {
+    dotenv().ok(); // loads .env in repo root
+    env::var("VITE_STAGEHAND_ROOT").expect("VITE_STAGEHAND_ROOT must be set")
+});
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -82,7 +89,7 @@ async fn generateFrame(script: Script, props: Arc<HashMap<String, LoadedProp>>, 
 
     // spawn blocking compute
     let bytes = tauri::async_runtime::spawn_blocking(move || -> Result<Vec<u8>, String> {
-        let start_total = Instant::now();
+        let startTotal = Instant::now();
 
         // 1. prepare blank canvas
         let mut canvas = RgbaImage::new(canvasSize.width, canvasSize.height);
@@ -99,7 +106,7 @@ async fn generateFrame(script: Script, props: Arc<HashMap<String, LoadedProp>>, 
             let py = stageDirection.y.min(canvasSize.height.saturating_sub(stageDirection.height));
 
             // scale image if needed to prop.width/prop.height
-            // let img_resized = img.resize_exact(stageDirection.width, stageDirection.height, image::imageops::FilterType::Nearest);
+            // let imgResized = img.resize_exact(stageDirection.width, stageDirection.height, image::imageops::FilterType::Nearest);
 
             // overlay on canvas
             if stageDirection.propType == "paste" {
@@ -116,7 +123,7 @@ async fn generateFrame(script: Script, props: Arc<HashMap<String, LoadedProp>>, 
         }
 
         // 4. return data
-        println!("Total frame generation: {:?}", start_total.elapsed());
+        println!("Total frame generation: {:?}", startTotal.elapsed());
         // Ok(buf.into_inner())
         Ok(canvas.into_raw())
     })
@@ -174,8 +181,8 @@ async fn renderVideo(payload: serde_json::Value) -> Result<String, String> {
         println!("generated frame {}/{}", frames.len(), scene.frames.len());
     }
 
-    // let output_file = TEMP_DIR.join("output.mp4"); // XXX
-    let output_file = String::from("/home/razzula/repos/stagehand/bin/out2.mp4");
+    // let outputFile = TEMP_DIR.join("output.mp4"); // XXX
+    let outputFile = format!("{}/bin/out2.mp4", *PROJECT_DIR);
 
     // 4. encode video (ffmpeg)
     let mut ffmpeg = std::process::Command::new("ffmpeg")
@@ -184,14 +191,15 @@ async fn renderVideo(payload: serde_json::Value) -> Result<String, String> {
             "-f", "rawvideo",
             "-pix_fmt", "rgba",
             "-video_size", &format!("{}x{}", canvasSize.width, canvasSize.height),
+            "-framerate", "30", // XXX needs to be parameterised
             "-i", "-",
-            "-i", "/home/razzula/repos/stagehand/public/assets/sample.mp4", // XXX
+            "-i", &format!("{}/public/assets/sample.mp4", *PROJECT_DIR),
             "-map", "0:v",
             "-map", "1:a",
             "-c:v", "libx264",
             "-pix_fmt", "yuv420p",
-            "-shortest",
-            &output_file.to_string(),
+            // "-shortest",
+            &outputFile.to_string(),
         ])
         .stdin(Stdio::piped())
         .spawn()
@@ -211,7 +219,7 @@ async fn renderVideo(payload: serde_json::Value) -> Result<String, String> {
         return Err(format!("ffmpeg exited with {}", status));
     }
 
-    Ok(output_file.to_string())
+    Ok(outputFile.to_string())
 }
 
 #[tauri::command]
@@ -271,12 +279,12 @@ fn loadProps(props: &HashMap<String, Prop>) -> Result<HashMap<String, LoadedProp
 fn fastCopyImage(dest: &mut RgbaImage, src: &RgbaImage, x: u32, y: u32) {
     let (w, h) = src.dimensions();
     for row in 0..h {
-        let dest_start = ((y + row) * dest.width() + x) as usize * 4;
-        let src_start = (row * w) as usize * 4;
+        let destStart = ((y + row) * dest.width() + x) as usize * 4;
+        let srcStart = (row * w) as usize * 4;
         unsafe {
             std::ptr::copy_nonoverlapping(
-                src.as_ptr().add(src_start),
-                dest.as_mut_ptr().add(dest_start),
+                src.as_ptr().add(srcStart),
+                dest.as_mut_ptr().add(destStart),
                 (w * 4) as usize
             );
         }
