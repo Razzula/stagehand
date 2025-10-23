@@ -7,7 +7,7 @@ const STAGEHAND_DIR = '/media/razzula/media2/Programming/Web/';
 export function scriptFromTemplate(
     template: Template,
     frame: number, frameTimeSec: number,
-    audioVolume?: number,
+    audioVolume?: Record<string, number>,
     frameW?: number, frameH?: number
 ): Script {
 
@@ -43,6 +43,8 @@ export function scriptFromTemplate(
     });
 
     for (const head of template.heads) {
+        const id = head.id;
+
         const normX = (head.origin.x / canvasW); // XXX
         const normY = (head.origin.y / canvasH); // XXX
         const px = origin.x + Math.round(normX * canvasW);
@@ -51,7 +53,7 @@ export function scriptFromTemplate(
         const h = Math.round((head.height / canvasH) * canvasH); // XXX
 
         // bob head according to audio volume
-        const bob = Math.round((audioVolume ?? 0) * -40);
+        const bob = Math.round((audioVolume?.[id] ?? 0) * -40);
 
         props.push({
             prop: head.id,
@@ -78,7 +80,7 @@ export interface CustomVideoAsset {
     audioSampleRate: number;
 }
 
-export async function sceneFromTemplate(template: Template, customAssets: CustomVideoAsset[]): Promise<Scene> {
+export async function sceneFromTemplate(template: Template, customAssets: CustomVideoAsset[], audioSplit: Record<string, number[][]>): Promise<Scene> {
 
     const props: Record<string, Prop> = {};
     const frames: Script[] = [];
@@ -110,7 +112,15 @@ export async function sceneFromTemplate(template: Template, customAssets: Custom
     console.log('length of floatSamples:', floatSamples.length);
     const volumesPerFrame = computeRMSPerFrame(floatSamples, customAssets[0].audioSampleRate, fps);
     console.log('length of volumes:', volumesPerFrame.length);
-    console.log(volumesPerFrame[0], volumesPerFrame[1], volumesPerFrame[2], volumesPerFrame[3], volumesPerFrame[4]);
+
+    // associate volumes to heads
+    const filteredVolumesPerFrame = [];
+    for (let i = 0; i < volumesPerFrame.length; i++) {
+        filteredVolumesPerFrame.push({
+            'kiwi': isWithinBounds(audioSplit['kiwi'], i) ? volumesPerFrame[i] : 0,
+            'pengwyn': isWithinBounds(audioSplit['pengwyn'], i) ? volumesPerFrame[i] : 0,
+        });
+    }
 
     // calculate frames
     const totalFrames = durationSec * fps;
@@ -121,7 +131,7 @@ export async function sceneFromTemplate(template: Template, customAssets: Custom
         const script = scriptFromTemplate(
             template,
             i + 1, frameTimeSec,
-            volumesPerFrame[i] ?? 0,
+            filteredVolumesPerFrame[i] ?? undefined,
             frameW, frameH,
         );
         frames.push(script);
@@ -154,4 +164,15 @@ function computeRMSPerFrame(samples: Float32Array, sampleRate: number, fps: numb
         volumes[f] = Math.sqrt(sumSq / (end - start || 1));
     }
     return volumes;
+}
+
+function isWithinBounds(audioSplit: number[][], frame: number): boolean {
+    for (const range of audioSplit) {
+        const startFrame = range[0];
+        const endFrame = range[1];
+        if (frame >= startFrame && frame < endFrame) {
+            return true;
+        }
+    }
+    return false;
 }

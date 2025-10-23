@@ -4,8 +4,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { scriptFromTemplate, sceneFromTemplate, CustomVideoAsset } from './stage/director';
 
 import { testplate } from './data/testplate';
-import './App.css';
 import { Scene } from './stage/stage';
+
+import './App.css';
 
 const generatedSrc2 = new URL('/bin/out2.mp4', import.meta.url).href;
 
@@ -20,7 +21,14 @@ const videoData: CustomVideoAsset = {
 
 function App() {
 
+    const [template, setTemplate] = useState(testplate);
+    const [audioSplit, setAudioSplit] = useState<Record<string, number[][]>>({
+        'kiwi': [[0, 20*30], [23*30, 27*30]],
+        'pengwyn': [[20.5*30, 24*30], [27*30, 30*30]],
+    });
+
     const [frames, setFrames] = useState<string[]>([]);
+    const [rendered, setRendered] = useState<boolean>(false);
 
     useEffect(() => {
         testFrameGeneration();
@@ -28,7 +36,7 @@ function App() {
 
     async function testFrameGeneration() {
         const renderedFrames: string[] = [];
-        const scene = await sceneFromTemplate(testplate, [videoData]);
+        const scene = await sceneFromTemplate(template, [videoData], audioSplit);
         for (let i = 0; i < 1; i++) {
             const frame = scene.frames[i*30]; // every second
             const frameAsScene: Scene = {
@@ -42,8 +50,9 @@ function App() {
     }
 
     async function renderVideo(payload: Scene) {
-        const temp = await invoke('renderVideo', { payload });
-        alert(temp);
+        setRendered(false);
+        await invoke('renderVideo', { payload });
+        setRendered(true);
     }
 
     return (
@@ -56,7 +65,7 @@ function App() {
                 />
                 <h2>Template</h2>
                 <img className='pane'
-                    src={new URL(testplate.background.image, import.meta.url).href}
+                    src={new URL(template.background.image, import.meta.url).href}
                 />
             </div>
 
@@ -71,14 +80,16 @@ function App() {
                 <h2>Render</h2>
                 <div>
                     <button
-                        onClick={() => sceneFromTemplate(testplate, [videoData]).then(scene => renderVideo(scene)) }
+                        onClick={() => sceneFromTemplate(template, [videoData], audioSplit).then(scene => renderVideo(scene)) }
                     >
                         Render Video!
                     </button>
                 </div>
-                <video className='pane'
-                    src={generatedSrc2} controls={true}
-                />
+                { rendered &&
+                    <video className='pane'
+                        src={generatedSrc2} controls={true}
+                    />
+                }
             </div>
 
         </div>
