@@ -33,7 +33,29 @@ export const testplate: Template = {
                     }
                 ],
             },
-        }
+        },
+        {
+            id: 'pengwyn',
+            image: '/assets/penpengwyn.png',
+            width: 144,
+            height: 113,
+            origin: {
+                x: 125,
+                y: 391 ,
+            },
+            paths: {
+                'offset-y': [
+                    {
+                        keyframe: 0,
+                        value: 0,
+                    },
+                    {
+                        keyframe: 1,
+                        value: 100,
+                    }
+                ],
+            },
+        },
     ],
     video: {
         id: 'sample',
