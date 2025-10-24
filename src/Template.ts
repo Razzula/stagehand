@@ -15,7 +15,7 @@ export interface Template {
 
 export interface FixedAsset {
     id: string;
-    image: string;
+    sprites: string[];
     width: number;
     height: number;
     origin: {

@@ -22,12 +22,13 @@ export interface Script {
 
 export interface Prop {
     id: string;
-    src: string;
+    sprites: string[];
 }
 
 export interface StageDirection {
     id?: string;
     prop: Prop['id'];
+    sprite?: number;
     type: PropType;
 
     // common

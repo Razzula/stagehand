@@ -1,3 +1,5 @@
+import seedrandom from 'seedrandom';
+
 import { Template } from '../Template';
 import { Prop, Scene, Script, StageDirection } from './stage';
 import { invoke } from '@tauri-apps/api/core';
@@ -8,6 +10,7 @@ export function scriptFromTemplate(
     template: Template,
     frame: number, frameTimeSec: number,
     audioVolume?: Record<string, number>,
+    prngs?: Record<string, Blinker>,
     frameW?: number, frameH?: number
 ): Script {
 
@@ -55,8 +58,12 @@ export function scriptFromTemplate(
         // bob head according to audio volume
         const bob = Math.round((audioVolume?.[id] ?? 0) * -40);
 
+        // blinking
+        const blinker = prngs?.[id];
+
         props.push({
             prop: head.id,
+            sprite: blinker?.isBlink(frame) ? 1 : 0,//XXX
             type: 'image',
             x: px,
             y: py + bob,
@@ -69,6 +76,11 @@ export function scriptFromTemplate(
         id,
         props,
     };
+}
+
+function shouldBlink(frame: number): boolean {
+    const cycle = frame % 60;
+    return (cycle >= 15 && cycle < 20) || (cycle >= 45 && cycle < 50);
 }
 
 export interface CustomVideoAsset {
@@ -95,12 +107,12 @@ export async function sceneFromTemplate(template: Template, customAssets: Custom
     // setup props
     props['background'] = {
         id: 'background',
-        src: `${STAGEHAND_DIR}/stagehand/public/${template.background.image}`,
+        sprites: [`${STAGEHAND_DIR}/stagehand/public/${template.background.image}`],
     };
     for (const head of template.heads) {
         props[head.id] = {
             id: head.id,
-            src: `${STAGEHAND_DIR}/stagehand/public/${head.image}`,
+            sprites: head.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
         };
     }
 
@@ -122,6 +134,16 @@ export async function sceneFromTemplate(template: Template, customAssets: Custom
         });
     }
 
+    // generate blinking patterns
+    const prngs: Record<string, Blinker> = {};
+    template.heads.forEach(head => {
+        prngs[head.id] = new Blinker(
+            1*30, 7*30,
+            0.16*30, 0.32*30,
+            seedrandom(head.id)
+        );
+    });
+
     // calculate frames
     const totalFrames = durationSec * fps;
     console.log('totalFrames:', totalFrames);
@@ -132,6 +154,7 @@ export async function sceneFromTemplate(template: Template, customAssets: Custom
             template,
             i + 1, frameTimeSec,
             filteredVolumesPerFrame[i] ?? undefined,
+            prngs,
             frameW, frameH,
         );
         frames.push(script);
@@ -175,4 +198,47 @@ function isWithinBounds(audioSplit: number[][], frame: number): boolean {
         }
     }
     return false;
+}
+
+class Blinker {
+
+    private state: 'blink' | 'unblink' = 'unblink';
+    private nextChangeFrame: number | null = null;
+
+    constructor(
+        private minInterval: number,
+        private maxInterval: number,
+        private minBlink: number,
+        private maxBlink: number,
+        private rng: () => number
+    ) {
+        this.scheduleNextBlink(0);
+    }
+
+    isBlink(frame: number) {
+        if (this.nextChangeFrame === null || frame >= this.nextChangeFrame) {
+            // update state
+            if (this.state === 'blink') {
+                this.state = 'unblink';
+            }
+            else if (this.state === 'unblink') {
+                this.state = 'blink';
+            }
+            this.scheduleNextBlink(frame);
+        }
+        return this.state === 'blink';
+    }
+
+    scheduleNextBlink(currentFrame: number) {
+        if (this.state === 'unblink') {
+            this.nextChangeFrame = currentFrame + this.randomBetween(this.minInterval, this.maxInterval);
+        }
+        else if (this.state === 'blink') {
+            this.nextChangeFrame = currentFrame + this.randomBetween(this.minBlink, this.maxBlink);
+        }
+    }
+
+    randomBetween(min: number, max: number) {
+        return min + this.rng() * (max - min);
+    }
 }

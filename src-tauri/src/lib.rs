@@ -34,12 +34,12 @@ struct CanvasSize {
 #[derive(Deserialize)]
 struct Prop {
     id: String,
-    src: String,
+    sprites: Vec<String>,
 }
 
 struct LoadedProp {
     id: String,
-    image: RgbaImage,
+    sprites: Vec<RgbaImage>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -52,6 +52,7 @@ struct Script {
 struct StageDirection {
     id: Option<String>,
     prop: String,
+    sprite: Option<usize>,
     #[serde(rename = "type")]
     propType: String, // "image" | "paste"
     x: u32,
@@ -112,13 +113,17 @@ async fn generateFrame(script: Script, props: Arc<HashMap<String, LoadedProp>>, 
             if stageDirection.propType == "paste" {
                 fastCopyImage(
                     &mut canvas,
-                    &loadedProp.image,
+                    &loadedProp.sprites[stageDirection.sprite.unwrap_or(0)],
                     px,
                     py,
                 );
             }
             else if stageDirection.propType == "image" {
-                image::imageops::overlay(&mut canvas, &loadedProp.image, px as i64, py as i64);
+                image::imageops::overlay(
+                    &mut canvas,
+                    &loadedProp.sprites[stageDirection.sprite.unwrap_or(0)],
+                    px as i64, py as i64,
+                );
             }
         }
 
@@ -260,17 +265,20 @@ async fn extractAudio(videoPath: String, audioSampleRate: u32) -> Result<Vec<f32
     Ok(floats)
 }
 
-
 fn loadProps(props: &HashMap<String, Prop>) -> Result<HashMap<String, LoadedProp>, String> {
     let mut loadedProps: HashMap<String, LoadedProp> = HashMap::new();
     for (id, prop) in props.iter() {
-        let img = image::open(&prop.src)
-            .map_err(|e| format!("failed to open prop {}: {}", &prop.src, e))?
-            .to_rgba8();
+        let mut loadedSprites: Vec<RgbaImage> = Vec::new();
+        for spritePath in prop.sprites.iter() {
+            let img = image::open(spritePath)
+                .map_err(|e| format!("failed to open sprite {} for prop {}: {}", spritePath, &prop.id, e))?
+                .to_rgba8();
+            loadedSprites.push(img);
+        }
 
         loadedProps.insert(id.clone(), LoadedProp {
             id: id.clone(),
-            image: img,
+            sprites: loadedSprites,
         });
     }
     Ok(loadedProps)
