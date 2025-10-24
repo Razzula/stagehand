@@ -14,7 +14,10 @@ export const testplate: Template = {
     heads: [
         {
             id: 'kiwi',
-            image: '/assets/kiwihead.png',
+            sprites: [
+                '/assets/kiwihead.png',
+                '/assets/kiwihead_blink.png',
+            ],
             width: 205,
             height: 130,
             origin: {
@@ -36,7 +39,10 @@ export const testplate: Template = {
         },
         {
             id: 'pengwyn',
-            image: '/assets/penpengwyn.png',
+            sprites: [
+                '/assets/penpengwyn.png',
+                '/assets/penpengwyn_blink.png',
+            ],
             width: 144,
             height: 113,
             origin: {
