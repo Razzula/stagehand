@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-
-import { scriptFromTemplate, sceneFromTemplate, CustomVideoAsset } from './stage/director';
-
+import { sceneFromTemplate, CustomVideoAsset } from './stage/director';
 import { testplate } from './data/testplate';
 import { Scene } from './stage/stage';
 
-import './App.css';
+import './App.scss';
 
 const generatedSrc2 = new URL('/bin/out2.mp4', import.meta.url).href;
 
@@ -26,70 +24,110 @@ function App() {
         'kiwi': [[0, 20*30], [23*30, 27*30]],
         'pengwyn': [[20.5*30, 24*30], [27*30, 30*30]],
     });
-
+    
     const [frames, setFrames] = useState<string[]>([]);
-    const [rendered, setRendered] = useState<boolean>(false);
+
+    const [rendered, setRendered] = useState<boolean | undefined>(false);
 
     useEffect(() => {
         testFrameGeneration();
     }, []);
 
     async function testFrameGeneration() {
-        const renderedFrames: string[] = [];
         const scene = await sceneFromTemplate(template, [videoData], audioSplit);
-        for (let i = 0; i < 1; i++) {
-            const frame = scene.frames[i*30]; // every second
-            const frameAsScene: Scene = {
-                ...scene,
-                frames: [frame],
-            };
-            const render = await invoke('renderFrame', { payload: frameAsScene });
-            renderedFrames.push(render as string);
-            setFrames(renderedFrames);
-        }
+        const frameAsScene: Scene = { ...scene, frames: [scene.frames[0]] };
+        const render = await invoke('renderFrame', { payload: frameAsScene });
+        setFrames([render as string]);
     }
 
     async function renderVideo(payload: Scene) {
-        setRendered(false);
+        setRendered(undefined);
         await invoke('renderVideo', { payload });
         setRendered(true);
     }
 
     return (
-        <div>
+        <div className='quarterise main'>
 
-            <div>
-                <h2>Video</h2>
-                <video className='pane'
-                    src={new URL(videoData.src, import.meta.url).href} controls={true}
-                />
-                <h2>Template</h2>
-                <img className='pane'
-                    src={new URL(template.background.image, import.meta.url).href}
-                />
-            </div>
+            {/* Top Row */}
+            <div className='section'>
+                <h2>Assets</h2>
+                <div className='scroller'>
 
-            <div>
-                <h2>Preview</h2>
-                <img className='pane'
-                    src={frames[0]}
-                />
-            </div>
+                    <div className='section'>
+                        <div>{'testplate'}</div>
+                        <div>{videoData.src}</div>
+                    </div>
 
-            <div>
-                <h2>Render</h2>
-                <div>
-                    <button
-                        onClick={() => sceneFromTemplate(template, [videoData], audioSplit).then(scene => renderVideo(scene)) }
-                    >
-                        Render Video!
-                    </button>
+                    <div className='section'>
+                        {/* <h2>Video</h2> */}
+                        <video className='pane'
+                            src={new URL(videoData.src, import.meta.url).href} controls
+                        />
+                    </div>
+
+                    <div className='section'>
+                        {/* <h2>Template</h2> */}
+                        <img className='pane'
+                            src={new URL(template.background.image, import.meta.url).href}
+                        />
+                    </div>
+
+                    <div className='section'>
+                        <div className='quaterise'>
+                        {
+                            template.heads.map(head => (
+                                <img className='pane'
+                                    src={new URL(head.sprites?.[0], import.meta.url).href}
+                                    // style={{
+                                    //     width: head.width, height: head.height,
+                                    // }}
+                                />
+                            ))
+                        }
+                        </div>
+                    </div>
                 </div>
-                { rendered &&
-                    <video className='pane'
-                        src={generatedSrc2} controls={true}
-                    />
+            </div>
+
+            <div className='section'>
+                <h2>Preview</h2>
+                {frames[0] && <img className='pane' src={frames[0]} />}
+            </div>
+
+            {/* Bottom Row */}
+            <div className='section'>
+                <h2>
+                    Render{rendered ? 'ed' : (rendered === undefined ? 'ing' : '')} Video
+                </h2>
+                {rendered &&
+                    <video className='pane' src={generatedSrc2} controls />
                 }
+                {rendered === false &&
+                    <button
+                        onClick={() => sceneFromTemplate(template, [videoData], audioSplit)
+                            .then(scene => renderVideo(scene))
+                        }
+                    >
+                        Render Video
+                    </button>
+                }
+                {rendered === undefined &&
+                    <div className='loader'>
+                        Loading...
+                    </div>
+                }
+            </div>
+
+            <div className='section'>
+                <h2>Controls</h2>
+                <button
+                    onClick={() => sceneFromTemplate(template, [videoData], audioSplit)
+                        .then(scene => renderVideo(scene))
+                    }
+                >
+                    Render Video
+                </button>
             </div>
 
         </div>

@@ -13,16 +13,16 @@ export const testplate: Template = {
     },
     heads: [
         {
-            id: 'kiwi',
+            id: 'pengwyn',
             sprites: [
-                '/assets/kiwihead.png',
-                '/assets/kiwihead_blink.png',
+                '/assets/penpengwyn.png',
+                '/assets/penpengwyn_blink.png',
             ],
-            width: 205,
-            height: 130,
+            width: 144,
+            height: 113,
             origin: {
-                x: 909,
-                y: 251 ,
+                x: 125,
+                y: 391 ,
             },
             paths: {
                 'offset-y': [
@@ -38,16 +38,16 @@ export const testplate: Template = {
             },
         },
         {
-            id: 'pengwyn',
+            id: 'kiwi',
             sprites: [
-                '/assets/penpengwyn.png',
-                '/assets/penpengwyn_blink.png',
+                '/assets/kiwihead.png',
+                '/assets/kiwihead_blink.png',
             ],
-            width: 144,
-            height: 113,
+            width: 205,
+            height: 130,
             origin: {
-                x: 125,
-                y: 391 ,
+                x: 909,
+                y: 251 ,
             },
             paths: {
                 'offset-y': [
