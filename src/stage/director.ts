@@ -138,9 +138,9 @@ export async function sceneFromTemplate(template: Template, customAssets: Custom
     const prngs: Record<string, Blinker> = {};
     template.heads.forEach(head => {
         prngs[head.id] = new Blinker(
-            1*30, 7*30,
+            1.2*30, 7*30,
             0.16*30, 0.32*30,
-            seedrandom(head.id)
+            seedrandom(`${customAssets?.[0].src ?? 'null'}-${head.id}`)
         );
     });
 
