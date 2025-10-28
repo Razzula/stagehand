@@ -12,6 +12,7 @@ use std::time::Instant;
 
 use base64::Engine;
 use dotenvy::dotenv;
+use hound::{WavWriter, WavSpec, SampleFormat};
 use image::{RgbaImage, ImageFormat};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
@@ -81,6 +82,7 @@ pub fn run() {
             renderFrame,
             renderVideo,
             extractAudio,
+            diariseAudio,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -140,6 +142,8 @@ async fn generateFrame(script: Script, props: Arc<HashMap<String, LoadedProp>>, 
 
 #[tauri::command]
 async fn renderFrame(payload: serde_json::Value) -> Result<String, String> {
+    println!("renderFrame() called");
+
     let scene: Scene = serde_json::from_value(payload)
         .map_err(|e| format!("failed to deserialize: {}", e))?;
 
@@ -160,11 +164,15 @@ async fn renderFrame(payload: serde_json::Value) -> Result<String, String> {
     canvas.write_to(&mut buf, ImageFormat::Png)
         .map_err(|e| format!("failed to encode PNG: {}", e))?;
     let b64 = base64::engine::general_purpose::STANDARD.encode(buf.get_ref());
+
+    println!("Frame rendered");
     Ok(format!("data:image/png;base64,{}", b64))
 }
 
 #[tauri::command]
 async fn renderVideo(payload: serde_json::Value) -> Result<String, String> {
+    println!("renderVideo() called");
+
     // 1. deserialise payload as Scene
     let scene: Scene = serde_json::from_value(payload)
         .map_err(|e| format!("failed to deserialize: {}", e))?;
@@ -224,12 +232,15 @@ async fn renderVideo(payload: serde_json::Value) -> Result<String, String> {
         return Err(format!("ffmpeg exited with {}", status));
     }
 
+    println!("Video rendered");
     Ok(outputFile.to_string())
 }
 
 #[tauri::command]
 async fn extractAudio(videoPath: String, audioSampleRate: u32) -> Result<Vec<f32>, String> {
+    println!("extractAudio() called");
 
+    // extract audio
     let mut ffmpeg = std::process::Command::new("ffmpeg")
         .args([
             "-i", &videoPath,
@@ -262,7 +273,52 @@ async fn extractAudio(videoPath: String, audioSampleRate: u32) -> Result<Vec<f32
         let sample = f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
         floats.push(sample);
     }
+
+    // save as temp .wav file
+    let spec = WavSpec {
+        channels: 1,
+        sample_rate: audioSampleRate,
+        bits_per_sample: 32,
+        sample_format: SampleFormat::Float,
+    };
+    let wavPath = TEMP_DIR.join("audio.wav");
+    let mut writer = WavWriter::create(&wavPath, spec)
+    .map_err(|e| format!("failed to create wav: {}", e))?;
+    for sample in &floats {
+        writer.write_sample(*sample)
+            .map_err(|e| format!("failed to write sample: {}", e))?;
+    }
+    writer.finalize()
+        .map_err(|e| format!("failed to finalize wav: {}", e))?;
+
+    // return raw data to frontend
+    println!("Audio extracted");
     Ok(floats)
+}
+
+#[tauri::command]
+async fn diariseAudio() -> Result<String, String> {
+    println!("diariseAudio() called");
+
+    dotenv().ok();
+    let hfToken = env::var("HF_TOKEN").map_err(|_| "HF_TOKEN must be set".to_string())?;
+
+    let output = std::process::Command::new("./src-py/.venv/bin/python3")
+        .arg("src-py/test.py")
+        .arg(&hfToken)
+        .arg(TEMP_DIR.join("audio.wav")) // XXX
+        .output()
+        .map_err(|e| format!("Failed to spawn python: {}", e))?;
+
+    if !output.status.success() {
+        return Err(format!(
+            "Python script failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+
+    println!("Audio diarised");
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
 fn loadProps(props: &HashMap<String, Prop>) -> Result<HashMap<String, LoadedProp>, String> {

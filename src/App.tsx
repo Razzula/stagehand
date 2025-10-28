@@ -6,44 +6,98 @@ import { Scene } from './stage/stage';
 
 import './App.scss';
 
-const generatedSrc2 = new URL('/bin/out2.mp4', import.meta.url).href;
+const STAGEHAND_DIR = '/media/razzula/media2/Programming/Web/';
 
-const videoData: CustomVideoAsset = {
-    id: 'sample',
-    src: '/assets/sample.mp4',
-    height: 1080,
-    width: 1920,
-    durationSec: 28,
-    audioSampleRate: 48000,
-};
+const generatedSrc2 = new URL('/bin/out2.mp4', import.meta.url).href;
 
 function App() {
 
-    const [template, setTemplate] = useState(testplate);
-    const [audioSplit, setAudioSplit] = useState<Record<string, number[][]>>({
-        'kiwi': [[0, 20*30], [23*30, 27*30]],
-        'pengwyn': [[20.5*30, 24*30], [27*30, 30*30]],
-    });
+    const [template, _setTemplate] = useState(testplate);
+
+    const [videoData, setVideoData] = useState<CustomVideoAsset | null>(null);
+    const [audioData, setAudioData] = useState<Float32Array | null>(null);
+    const [diarisation, setDiarisation] = useState<Record<string, number[][]>>({});
+    const [audioSplit, setAudioSplit] = useState<Record<string, number[][]>>({});
+
+    const [scene, setScene] = useState<Scene | null>(null);
     
     const [frames, setFrames] = useState<string[]>([]);
-
     const [rendered, setRendered] = useState<boolean | undefined>(false);
 
     useEffect(() => {
-        testFrameGeneration();
+        setVideoData({
+            id: 'sample',
+            src: '/assets/sample.mp4',
+            height: 1080,
+            width: 1920,
+            durationSec: 28,
+            audioSampleRate: 48000,
+        });
     }, []);
 
-    async function testFrameGeneration() {
-        const scene = await sceneFromTemplate(template, [videoData], audioSplit);
-        const frameAsScene: Scene = { ...scene, frames: [scene.frames[0]] };
-        const render = await invoke('renderFrame', { payload: frameAsScene });
-        setFrames([render as string]);
+    useEffect(() => {
+        extractAudio();
+    }, [videoData]);
+
+    useEffect(() => {
+        if (audioData) {
+            diariseAudio();
+        }
+    }, [audioData]);
+
+    useEffect(() => {
+        setAudioSplit({
+            'kiwi': diarisation?.['SPEAKER_01'],
+            'pengwyn': diarisation?.['SPEAKER_00']
+        });
+    }, [diarisation]);
+
+    useEffect(() => {
+        if (template && videoData)  {
+            generatePreviewFrame();
+        }
+    }, [template, videoData]);
+
+    useEffect(() => {
+        if (template && videoData && audioData && audioSplit)  {
+            sceneFromTemplate(template, [videoData], audioData, audioSplit)
+                .then(scene => setScene(scene));
+        }
+    }, [template, videoData, audioSplit]);
+
+    async function generatePreviewFrame() {
+        if (videoData) {
+            const scene = await sceneFromTemplate(template, [videoData], null, {});
+            const singleFrameScene: Scene = { ...scene, frames: [scene.frames[0]] };
+            const render = await invoke('renderFrame', { payload: singleFrameScene });
+            setFrames([render as string]);
+        }
     }
 
-    async function renderVideo(payload: Scene) {
-        setRendered(undefined);
-        await invoke('renderVideo', { payload });
-        setRendered(true);
+    async function extractAudio() {
+        if (videoData) {
+            const floatSamples = await invoke('extractAudio', {
+                videoPath: `${STAGEHAND_DIR}/stagehand/public/${videoData.src}`,
+                audioSampleRate: videoData.audioSampleRate,
+            }) as Float32Array;
+            setAudioData(floatSamples);
+        }
+    }
+
+    async function diariseAudio() {
+        const diarisation: string = await invoke('diariseAudio');
+        setDiarisation(JSON.parse(diarisation));
+    }
+
+    async function renderVideo() {
+        if (scene) {
+            setRendered(undefined);
+            await invoke('renderVideo', { payload: scene });
+            setRendered(true);
+        }
+        else {
+            console.error('Scene not computed');
+        }
     }
 
     return (
@@ -105,11 +159,10 @@ function App() {
                 }
                 {rendered === false &&
                     <button
-                        onClick={() => sceneFromTemplate(template, [videoData], audioSplit)
-                            .then(scene => renderVideo(scene))
-                        }
+                        onClick={renderVideo}
+                        disabled={scene === null}
                     >
-                        Render Video
+                        { scene ? 'Render Video' : 'Loading...' }
                     </button>
                 }
                 {rendered === undefined &&
@@ -122,11 +175,10 @@ function App() {
             <div className='section'>
                 <h2>Controls</h2>
                 <button
-                    onClick={() => sceneFromTemplate(template, [videoData], audioSplit)
-                        .then(scene => renderVideo(scene))
-                    }
+                    onClick={renderVideo}
+                    disabled={scene === null}
                 >
-                    Render Video
+                    { scene ? 'Render Video' : 'Loading...' }
                 </button>
             </div>
 
