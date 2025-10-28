@@ -2,13 +2,12 @@ import seedrandom from 'seedrandom';
 
 import { Template } from '../Template';
 import { Prop, Scene, Script, StageDirection } from './stage';
-import { invoke } from '@tauri-apps/api/core';
 
 const STAGEHAND_DIR = '/media/razzula/media2/Programming/Web/';
 
 export function scriptFromTemplate(
     template: Template,
-    frame: number, frameTimeSec: number,
+    frame: number, _frameTimeSec: number,
     audioVolume?: Record<string, number>,
     prngs?: Record<string, Blinker>,
     frameW?: number, frameH?: number
@@ -56,7 +55,7 @@ export function scriptFromTemplate(
         const h = Math.round((head.height / canvasH) * canvasH); // XXX
 
         // bob head according to audio volume
-        const bob = Math.round((audioVolume?.[id] ?? 0) * -40);
+        const bob = Math.round((audioVolume?.[id] ?? 0) * -60);
 
         // blinking
         const blinker = prngs?.[id];
@@ -78,11 +77,6 @@ export function scriptFromTemplate(
     };
 }
 
-function shouldBlink(frame: number): boolean {
-    const cycle = frame % 60;
-    return (cycle >= 15 && cycle < 20) || (cycle >= 45 && cycle < 50);
-}
-
 export interface CustomVideoAsset {
     id: string;
     src: string
@@ -92,7 +86,12 @@ export interface CustomVideoAsset {
     audioSampleRate: number;
 }
 
-export async function sceneFromTemplate(template: Template, customAssets: CustomVideoAsset[], audioSplit: Record<string, number[][]>): Promise<Scene> {
+export async function sceneFromTemplate(
+    template: Template,
+    customAssets: CustomVideoAsset[],
+    audioData: Float32Array | null,
+    audioSplit: Record<string, number[][]>,
+): Promise<Scene> {
 
     const props: Record<string, Prop> = {};
     const frames: Script[] = [];
@@ -117,31 +116,29 @@ export async function sceneFromTemplate(template: Template, customAssets: Custom
     }
 
     // handle audio
-    const floatSamples = await invoke('extractAudio', {
-        videoPath: `${STAGEHAND_DIR}/stagehand/public/${customAssets[0].src}`,
-        audioSampleRate: customAssets[0].audioSampleRate,
-    }) as Float32Array;
-    console.log('length of floatSamples:', floatSamples.length);
-    const volumesPerFrame = computeRMSPerFrame(floatSamples, customAssets[0].audioSampleRate, fps);
+    console.log('length of floatSamples:', audioData?.length ?? 0);
+    const volumesPerFrame = computeRMSPerFrame(audioData, customAssets[0].audioSampleRate, fps);
     console.log('length of volumes:', volumesPerFrame.length);
 
     // associate volumes to heads
     const filteredVolumesPerFrame = [];
     for (let i = 0; i < volumesPerFrame.length; i++) {
         filteredVolumesPerFrame.push({
-            'kiwi': isWithinBounds(audioSplit['kiwi'], i) ? volumesPerFrame[i] : 0,
-            'pengwyn': isWithinBounds(audioSplit['pengwyn'], i) ? volumesPerFrame[i] : 0,
+            'kiwi': isWithinBounds(audioSplit['kiwi'], i, fps) ? volumesPerFrame[i] : 0,
+            'pengwyn': isWithinBounds(audioSplit['pengwyn'], i, fps) ? (volumesPerFrame[i] * 1.2) : 0,
         });
     }
 
     // generate blinking patterns
     const prngs: Record<string, Blinker> = {};
     template.heads.forEach(head => {
-        prngs[head.id] = new Blinker(
-            1.2*30, 7*30,
-            0.16*30, 0.32*30,
-            seedrandom(`${customAssets?.[0].src ?? 'null'}-${head.id}`)
-        );
+        if (head.sprites.length > 1) {
+            prngs[head.id] = new Blinker(
+                1.2*30, 7*30,
+                0.16*30, 0.32*30,
+                seedrandom(`${customAssets?.[0].src ?? 'null'}-${head.id}`)
+            );
+        }
     });
 
     // calculate frames
@@ -160,6 +157,7 @@ export async function sceneFromTemplate(template: Template, customAssets: Custom
         frames.push(script);
     }
 
+    console.log('scene completed');
     return {
         fps,
         canvasSize: {
@@ -171,7 +169,11 @@ export async function sceneFromTemplate(template: Template, customAssets: Custom
     };
 }
 
-function computeRMSPerFrame(samples: Float32Array, sampleRate: number, fps: number) {
+function computeRMSPerFrame(samples: Float32Array | null, sampleRate: number, fps: number) {
+    if (samples === null) {
+        return new Float32Array();
+    }
+
     const samplesPerFrame = Math.round(sampleRate / fps);
     const totalFrames = Math.ceil(samples.length / samplesPerFrame);
     const volumes = new Float32Array(totalFrames);
@@ -189,10 +191,13 @@ function computeRMSPerFrame(samples: Float32Array, sampleRate: number, fps: numb
     return volumes;
 }
 
-function isWithinBounds(audioSplit: number[][], frame: number): boolean {
+function isWithinBounds(audioSplit: number[][], frame: number, fps: number): boolean {
+    if (audioSplit === undefined) {
+        return false;
+    }
     for (const range of audioSplit) {
-        const startFrame = range[0];
-        const endFrame = range[1];
+        const startFrame = range[0] * fps;
+        const endFrame = range[1] * fps;
         if (frame >= startFrame && frame < endFrame) {
             return true;
         }
