@@ -8,21 +8,33 @@ export const testplate: Template = {
     },
     background: {
         image: '/assets/testplate.png',
-        width: 1250,
-        height: 958,
+        width: 1920,
+        height: 1080,
     },
     heads: [
         {
+            id: 'pengwyn-eyes',
+            sprites: [
+                '/assets/pengwyneyes.png',
+                '/assets/pengwyneyes_blink.png',
+            ],
+            width: 110,
+            height: 42,
+            origin: {
+                x: 294,
+                y: 443,
+            },
+        },
+        {
             id: 'pengwyn',
             sprites: [
-                '/assets/penpengwyn.png',
-                '/assets/penpengwyn_blink.png',
+                '/assets/pengwynbeak.png',
             ],
-            width: 144,
-            height: 113,
+            width: 111,
+            height: 59,
             origin: {
-                x: 125,
-                y: 391 ,
+                x: 307,
+                y: 470,
             },
             paths: {
                 'offset-y': [
@@ -38,16 +50,28 @@ export const testplate: Template = {
             },
         },
         {
+            id: 'kiwi-eyes',
+            sprites: [
+                '/assets/kiwieyes.png',
+                '/assets/kiwieyes_blink.png',
+            ],
+            width: 100,
+            height: 40,
+            origin: {
+                x: 1518,
+                y: 232,
+            },
+        },
+        {
             id: 'kiwi',
             sprites: [
-                '/assets/kiwihead.png',
-                '/assets/kiwihead_blink.png',
+                '/assets/kiwibeak.png',
             ],
-            width: 205,
-            height: 130,
+            width: 216,
+            height: 88,
             origin: {
-                x: 909,
-                y: 251 ,
+                x: 1379,
+                y: 263,
             },
             paths: {
                 'offset-y': [
