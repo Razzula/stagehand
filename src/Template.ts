@@ -1,3 +1,5 @@
+import { CompositeType, PropType } from "./stage/stage";
+
 export interface Template {
     meta: {
         fps: number;
@@ -5,17 +7,24 @@ export interface Template {
         width?: number;
     };
     background: {
+        propType: PropType;
+        compositeType: CompositeType;
         image: string;
         width: number;
         height: number;
     };
     heads: FixedAsset[];
+    others: FixedAsset[];
     video: CustomAsset;
 }
 
 export interface FixedAsset {
     id: string;
+    propType: PropType;
+    compositeType: CompositeType;
+
     sprites: string[];
+
     width: number;
     height: number;
     origin: {
@@ -27,6 +36,9 @@ export interface FixedAsset {
 
 export interface CustomAsset {
     id: string;
+    propType: PropType;
+    compositeType: CompositeType;
+
     width: number;
     height: number;
     origin: {

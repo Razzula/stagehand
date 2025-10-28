@@ -36,11 +36,18 @@ struct CanvasSize {
 struct Prop {
     id: String,
     sprites: Vec<String>,
+    propType: String, // "image" | "video"
+    compositeType: String, // "copy" | "paste"
+
+    width: Option<u32>,
+    height: Option<u32>,
 }
 
 struct LoadedProp {
     id: String,
     sprites: Vec<RgbaImage>,
+    propType: String, // "image" | "video"
+    compositeType: String, // "copy" | "paste"
 }
 
 #[derive(Deserialize, Clone)]
@@ -54,8 +61,6 @@ struct StageDirection {
     id: Option<String>,
     prop: String,
     sprite: Option<usize>,
-    #[serde(rename = "type")]
-    propType: String, // "image" | "paste"
     x: u32,
     y: u32,
     width: u32,
@@ -88,7 +93,7 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-async fn generateFrame(script: Script, props: Arc<HashMap<String, LoadedProp>>, canvasSize: Arc<CanvasSize>) -> Result<Vec<u8>, String> {
+async fn generateFrame(frame: usize, script: Script, props: Arc<HashMap<String, LoadedProp>>, canvasSize: Arc<CanvasSize>) -> Result<Vec<u8>, String> {
 
     // spawn blocking compute
     let bytes = tauri::async_runtime::spawn_blocking(move || -> Result<Vec<u8>, String> {
@@ -112,18 +117,22 @@ async fn generateFrame(script: Script, props: Arc<HashMap<String, LoadedProp>>, 
             // let imgResized = img.resize_exact(stageDirection.width, stageDirection.height, image::imageops::FilterType::Nearest);
 
             // overlay on canvas
-            if stageDirection.propType == "paste" {
+            let spriteIndex = match loadedProp.propType.as_str() {
+                "video" => stageDirection.sprite.unwrap_or(0).min(loadedProp.sprites.len() - 1),
+                _ => stageDirection.sprite.unwrap_or(0),
+            };
+            if loadedProp.compositeType == "paste" {
                 fastCopyImage(
                     &mut canvas,
-                    &loadedProp.sprites[stageDirection.sprite.unwrap_or(0)],
+                    &loadedProp.sprites[spriteIndex],
                     px,
                     py,
                 );
             }
-            else if stageDirection.propType == "image" {
+            else if loadedProp.compositeType == "overlay" {
                 image::imageops::overlay(
                     &mut canvas,
-                    &loadedProp.sprites[stageDirection.sprite.unwrap_or(0)],
+                    &loadedProp.sprites[spriteIndex],
                     px as i64, py as i64,
                 );
             }
@@ -152,6 +161,7 @@ async fn renderFrame(payload: serde_json::Value) -> Result<String, String> {
 
     // render the frame
     let bytes = generateFrame(
+        0,
         scene.frames[0].clone(),
         props,
         canvasSize.clone(),
@@ -183,8 +193,9 @@ async fn renderVideo(payload: serde_json::Value) -> Result<String, String> {
 
     // 3. generate frames
     let mut frames: Vec<Vec<u8>> = Vec::new();
-    for frame in scene.frames.iter() {
+    for (i, frame) in scene.frames.iter().enumerate() {
         let frame = generateFrame(
+            i,
             frame.clone(),
             // cloning Arc does not clone underlying data
             props.clone(),
@@ -324,20 +335,69 @@ async fn diariseAudio() -> Result<String, String> {
 fn loadProps(props: &HashMap<String, Prop>) -> Result<HashMap<String, LoadedProp>, String> {
     let mut loadedProps: HashMap<String, LoadedProp> = HashMap::new();
     for (id, prop) in props.iter() {
+        
         let mut loadedSprites: Vec<RgbaImage> = Vec::new();
-        for spritePath in prop.sprites.iter() {
-            let img = image::open(spritePath)
-                .map_err(|e| format!("failed to open sprite {} for prop {}: {}", spritePath, &prop.id, e))?
-                .to_rgba8();
-            loadedSprites.push(img);
+        if prop.propType == "image" {
+            // load all images as array (spritesheet)
+            for spritePath in prop.sprites.iter() {
+                let img = image::open(spritePath)
+                    .map_err(|e| format!("failed to open sprite {} for prop {}: {}", spritePath, &prop.id, e))?
+                    .to_rgba8();
+                loadedSprites.push(img);
+            }
+        }
+        else if prop.propType == "video" {
+            // load all frames into image array
+            loadedSprites = loadVideoFrames(
+                &prop.sprites[0],
+                prop.width.unwrap_or(1920),
+                prop.height.unwrap_or(1080),
+                30, // XXX is this even needed?
+            )?;
         }
 
         loadedProps.insert(id.clone(), LoadedProp {
             id: id.clone(),
             sprites: loadedSprites,
+            propType: prop.propType.clone(),
+            compositeType: prop.compositeType.clone(),
         });
     }
     Ok(loadedProps)
+}
+
+fn loadVideoFrames(path: &str, width: u32, height: u32, fps: u32) -> Result<Vec<RgbaImage>, String> {
+    let mut cmd = std::process::Command::new("ffmpeg")
+        .args([
+            "-i", path,
+            "-f", "rawvideo",
+            "-pix_fmt", "rgba",
+            "-vf", &format!("scale={}x{}", width, height),
+            "-r", &fps.to_string(),
+            "-",
+        ])
+        .stdout(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("failed to spawn ffmpeg: {}", e))?;
+
+    let stdout = cmd.stdout.as_mut().ok_or("failed to open ffmpeg stdout")?;
+    let frame_size = (width * height * 4) as usize; // RGBA
+    let mut buffer = Vec::new();
+    stdout.read_to_end(&mut buffer).map_err(|e| format!("failed to read ffmpeg stdout: {}", e))?;
+
+    let mut frames = Vec::new();
+    for chunk in buffer.chunks_exact(frame_size) {
+        let img = RgbaImage::from_raw(width, height, chunk.to_vec())
+            .ok_or("failed to convert chunk to RgbaImage")?;
+        frames.push(img);
+    }
+
+    let status = cmd.wait().map_err(|e| format!("ffmpeg wait error: {}", e))?;
+    if !status.success() {
+        return Err("ffmpeg exited with error".into());
+    }
+
+    Ok(frames)
 }
 
 fn fastCopyImage(dest: &mut RgbaImage, src: &RgbaImage, x: u32, y: u32) {
