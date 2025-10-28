@@ -1,4 +1,5 @@
-export type PropType = 'image' | 'paste';
+export type PropType = 'image' | 'video';
+export type CompositeType = 'overlay' | 'paste';
 
 export interface Scene {
     id?: string;
@@ -23,13 +24,17 @@ export interface Script {
 export interface Prop {
     id: string;
     sprites: string[];
+    propType: PropType;
+    compositeType: CompositeType;
+
+    width?: number;
+    height?: number;
 }
 
 export interface StageDirection {
     id?: string;
     prop: Prop['id'];
     sprite?: number;
-    type: PropType;
 
     // common
     x: number;          // pixel top-left

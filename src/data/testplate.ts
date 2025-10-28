@@ -10,6 +10,8 @@ export const testplate: Template = {
         image: '/assets/testplate.png',
         width: 1920,
         height: 1080,
+        propType: 'image',
+        compositeType: 'paste',
     },
     heads: [
         {
@@ -24,6 +26,8 @@ export const testplate: Template = {
                 x: 294,
                 y: 443,
             },
+            propType: 'image',
+            compositeType: 'paste',
         },
         {
             id: 'pengwyn',
@@ -48,6 +52,8 @@ export const testplate: Template = {
                     }
                 ],
             },
+            propType: 'image',
+            compositeType: 'overlay',
         },
         {
             id: 'kiwi-eyes',
@@ -61,6 +67,8 @@ export const testplate: Template = {
                 x: 1518,
                 y: 232,
             },
+            propType: 'image',
+            compositeType: 'overlay',
         },
         {
             id: 'kiwi',
@@ -85,16 +93,51 @@ export const testplate: Template = {
                     }
                 ],
             },
+            propType: 'image',
+            compositeType: 'overlay',
         },
     ],
     video: {
         id: 'sample',
-        width: 192,
-        height: 108,
+        width: 515,
+        height: 290,
         origin: {
-            x: 0,
-            y: 0,
+            x: 676,
+            y: 312,
         },
         paths: {},
+        propType: 'video',
+        compositeType: 'paste',
     },
+    others: [
+        {
+            id: 'telly',
+            sprites: [
+                '/assets/telly.png',
+                '/assets/telly_blink.png',
+            ],
+            width: 566,
+            height: 546,
+            origin: {
+                x: 651,
+                y: 121,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-held',
+            sprites: [
+                '/assets/treaty.png',
+            ],
+            width: 212,
+            height: 258,
+            origin: {
+                x: 1161,
+                y: 442,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+    ],
 }

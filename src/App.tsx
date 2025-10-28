@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+
 import { sceneFromTemplate, CustomVideoAsset } from './stage/director';
 import { testplate } from './data/testplate';
 import { Scene } from './stage/stage';
@@ -35,11 +36,11 @@ function App() {
         });
     }, []);
 
-    useEffect(() => {
+    useMemo(() => {
         extractAudio();
     }, [videoData]);
 
-    useEffect(() => {
+    useMemo(() => {
         if (audioData) {
             diariseAudio();
         }
@@ -52,13 +53,13 @@ function App() {
         });
     }, [diarisation]);
 
-    useEffect(() => {
+    useMemo(() => {
         if (template && videoData)  {
             generatePreviewFrame();
         }
     }, [template, videoData]);
 
-    useEffect(() => {
+    useMemo(() => {
         if (template && videoData && audioData && audioSplit)  {
             sceneFromTemplate(template, [videoData], audioData, audioSplit)
                 .then(scene => setScene(scene));
@@ -80,7 +81,9 @@ function App() {
                 videoPath: `${STAGEHAND_DIR}/stagehand/public/${videoData.src}`,
                 audioSampleRate: videoData.audioSampleRate,
             }) as Float32Array;
-            setAudioData(floatSamples);
+            if (floatSamples !== audioData) {
+                setAudioData(floatSamples);
+            }
         }
     }
 
@@ -110,13 +113,13 @@ function App() {
 
                     <div className='section'>
                         <div>{'testplate'}</div>
-                        <div>{videoData.src}</div>
+                        <div>{videoData?.src}</div>
                     </div>
 
                     <div className='section'>
                         {/* <h2>Video</h2> */}
                         <video className='pane'
-                            src={new URL(videoData.src, import.meta.url).href} controls
+                            src={new URL(videoData?.src ?? '', import.meta.url).href} controls
                         />
                     </div>
 

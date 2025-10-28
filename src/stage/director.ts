@@ -7,6 +7,7 @@ const STAGEHAND_DIR = '/media/razzula/media2/Programming/Web/';
 
 export function scriptFromTemplate(
     template: Template,
+    customAssets: CustomVideoAsset[],
     frame: number, _frameTimeSec: number,
     audioVolume?: Record<string, number>,
     prngs?: Record<string, Blinker>,
@@ -37,7 +38,6 @@ export function scriptFromTemplate(
 
     props.push({
         prop: 'background',
-        type: 'paste',
         x: origin.x,
         y: origin.y,
         width: template.background.width,
@@ -55,17 +55,59 @@ export function scriptFromTemplate(
         const h = Math.round((head.height / canvasH) * canvasH); // XXX
 
         // bob head according to audio volume
-        const bob = Math.round((audioVolume?.[id] ?? 0) * -60);
+        const bob = Math.round((audioVolume?.[id] ?? 0) * -40);
 
         // blinking
         const blinker = prngs?.[id];
 
         props.push({
-            prop: head.id,
+            prop: id,
             sprite: blinker?.isBlink(frame) ? 1 : 0,//XXX
-            type: 'image',
             x: px,
             y: py + bob,
+            width: w,
+            height: h,
+        });
+    }
+
+    for (const customAsset of customAssets) {
+        const id = customAsset.id;
+
+        const normX = (template.video.origin.x / canvasW); // XXX
+        const normY = (template.video.origin.y / canvasH); // XXX
+        const px = origin.x + Math.round(normX * canvasW);
+        const py = origin.y + Math.round(normY * canvasH);
+        const w = Math.round((template.video.width / canvasW) * canvasW); // XXX
+        const h = Math.round((template.video.height / canvasH) * canvasH); // XXX
+
+        
+        props.push({
+            prop: id,
+            sprite: frame,
+            x: px,
+            y: py,
+            width: w,
+            height: h,
+        });
+    }
+    
+    for (const other of template.others) {
+        const id = other.id;
+        
+        const normX = (other.origin.x / canvasW); // XXX
+        const normY = (other.origin.y / canvasH); // XXX
+        const px = origin.x + Math.round(normX * canvasW);
+        const py = origin.y + Math.round(normY * canvasH);
+        const w = Math.round((other.width / canvasW) * canvasW); // XXX
+        const h = Math.round((other.height / canvasH) * canvasH); // XXX
+        
+        const blinker = prngs?.[id];
+
+        props.push({
+            prop: id,
+            sprite: blinker?.isBlink(frame) ? 1 : 0,
+            x: px,
+            y: py,
             width: w,
             height: h,
         });
@@ -107,11 +149,34 @@ export async function sceneFromTemplate(
     props['background'] = {
         id: 'background',
         sprites: [`${STAGEHAND_DIR}/stagehand/public/${template.background.image}`],
+        propType: template.background.propType,
+        compositeType: template.background.compositeType,
     };
     for (const head of template.heads) {
         props[head.id] = {
             id: head.id,
             sprites: head.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
+            propType: head.propType,
+            compositeType: head.compositeType,
+        };
+    }
+    for (const customAsset of customAssets) {
+        props[customAsset.id] = {
+            id: customAsset.id,
+            sprites: [`${STAGEHAND_DIR}/stagehand/public/${customAsset.src}`],
+            propType: template.video.propType,
+            compositeType: template.video.compositeType,
+
+            width: template.video.width,
+            height: template.video.height,
+        };
+    }
+    for (const other of template.others) {
+        props[other.id] = {
+            id: other.id,
+            sprites: other.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
+            propType: other.propType,
+            compositeType: other.compositeType,
         };
     }
 
@@ -134,9 +199,18 @@ export async function sceneFromTemplate(
     template.heads.forEach(head => {
         if (head.sprites.length > 1) {
             prngs[head.id] = new Blinker(
-                1.2*30, 7*30,
-                0.16*30, 0.32*30,
+                1.2*fps, 7*fps,
+                0.16*fps, 0.32*fps,
                 seedrandom(`${customAssets?.[0].src ?? 'null'}-${head.id}`)
+            );
+        }
+    });
+    template.others.forEach(other => {
+        if (other.sprites.length > 1) {
+            prngs[other.id] = new Blinker(
+                0.3 * fps, 3 * fps,
+                0.3 * fps, 1.2 * fps,
+                seedrandom(`${customAssets?.[0].src ?? 'null'}-${other.id}`)
             );
         }
     });
@@ -148,7 +222,7 @@ export async function sceneFromTemplate(
     for (let i = 0; i < totalFrames; i++) {
         const frameTimeSec = i / fps;
         const script = scriptFromTemplate(
-            template,
+            template, customAssets,
             i + 1, frameTimeSec,
             filteredVolumesPerFrame[i] ?? undefined,
             prngs,
