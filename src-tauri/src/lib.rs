@@ -15,15 +15,16 @@ use dotenvy::dotenv;
 use hound::{WavWriter, WavSpec, SampleFormat};
 use image::{RgbaImage, ImageFormat};
 use once_cell::sync::Lazy;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
 struct Scene {
-    id: Option<String>,
+    id: String,
+    fps: u32,
     canvasSize: CanvasSize,
     props: HashMap<String, Prop>,
+    audio: Option<String>,
     frames: Vec<Script>,
-    outputPath: Option<String>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -48,6 +49,9 @@ struct LoadedProp {
     sprites: Vec<RgbaImage>,
     propType: String, // "image" | "video"
     compositeType: String, // "copy" | "paste"
+
+    width: u32,
+    height: u32,
 }
 
 #[derive(Deserialize, Clone)]
@@ -63,8 +67,17 @@ struct StageDirection {
     sprite: Option<usize>,
     x: u32,
     y: u32,
+    width: Option<u32>,
+    height: Option<u32>,
+}
+
+#[derive(Serialize)]
+struct VideoData {
     width: u32,
     height: u32,
+    durationSec: f64,
+    audioSampleRate: u32,
+    datetime: String, // ISO string
 }
 
 static TEMP_DIR: Lazy<PathBuf> = Lazy::new(|| {
@@ -88,6 +101,7 @@ pub fn run() {
             renderVideo,
             extractAudio,
             diariseAudio,
+            getVideoData,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -110,8 +124,11 @@ async fn generateFrame(frame: usize, script: Script, props: Arc<HashMap<String, 
             // let img = &loadedProp.image;
 
             // compute coordinates
-            let px = stageDirection.x.min(canvasSize.width.saturating_sub(stageDirection.width));
-            let py = stageDirection.y.min(canvasSize.height.saturating_sub(stageDirection.height));
+            // use mandated dimensions, if given, else use actual
+            let width = stageDirection.width.unwrap_or(loadedProp.width);
+            let height = stageDirection.height.unwrap_or(loadedProp.height);
+            let px = stageDirection.x.min(canvasSize.width.saturating_sub(width));
+            let py = stageDirection.y.min(canvasSize.height.saturating_sub(height));
 
             // scale image if needed to prop.width/prop.height
             // let imgResized = img.resize_exact(stageDirection.width, stageDirection.height, image::imageops::FilterType::Nearest);
@@ -206,7 +223,7 @@ async fn renderVideo(payload: serde_json::Value) -> Result<String, String> {
     }
 
     // let outputFile = TEMP_DIR.join("output.mp4"); // XXX
-    let outputFile = format!("{}/bin/out2.mp4", *PROJECT_DIR);
+    let outputFile = format!("{}/bin/{}.mp4", *PROJECT_DIR, scene.id);
 
     // 4. encode video (ffmpeg)
     let mut ffmpeg = std::process::Command::new("ffmpeg")
@@ -215,9 +232,9 @@ async fn renderVideo(payload: serde_json::Value) -> Result<String, String> {
             "-f", "rawvideo",
             "-pix_fmt", "rgba",
             "-video_size", &format!("{}x{}", canvasSize.width, canvasSize.height),
-            "-framerate", "30", // XXX needs to be parameterised
+            "-framerate", &format!("{}", scene.fps),
             "-i", "-",
-            "-i", &format!("{}/public/assets/sample.mp4", *PROJECT_DIR),
+            "-i", &format!("{}/public/{}", *PROJECT_DIR, scene.audio.ok_or("no audio track provided")?),
             "-map", "0:v",
             "-map", "1:a",
             "-c:v", "libx264",
@@ -308,6 +325,63 @@ async fn extractAudio(videoPath: String, audioSampleRate: u32) -> Result<Vec<f32
 }
 
 #[tauri::command]
+fn getVideoData(path: &str) -> Result<VideoData, String> {
+    println!("extractAudio() called");
+
+    let output = std::process::Command::new("ffprobe")
+        .args([
+            "-v", "error",
+            "-select_streams", "v:0",
+            "-show_entries", "stream=width,height,r_frame_rate,duration",
+            "-show_entries", "format_tags=creation_time",
+            "-of", "json",
+            path,
+        ])
+        .output()
+        .map_err(|e| format!("ffprobe failed: {}", e))?;
+
+    if !output.status.success() {
+        return Err("ffprobe exited with error".into());
+    }
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .map_err(|e| format!("failed to parse ffprobe output: {}", e))?;
+
+    let stream = &json["streams"][0];
+    let format = &json["format"];
+
+    let width = stream["width"].as_u64().unwrap_or(1920) as u32;
+    let height = stream["height"].as_u64().unwrap_or(1080) as u32;
+    let durationSec = stream["duration"]
+        .as_str()
+        .or(format["duration"].as_str())
+        .unwrap_or("0")
+        .parse::<f64>()
+        .unwrap_or(0.0);
+    let audioSampleRate = json["streams"]
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .find(|s| s["codec_type"] == "audio")
+        .and_then(|a| a["sample_rate"].as_str())
+        .unwrap_or("48000")
+        .parse::<u32>()
+        .unwrap_or(48000);
+    let datetime = format["tags"]["creation_time"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+
+    Ok(VideoData {
+        width,
+        height,
+        durationSec,
+        audioSampleRate,
+        datetime,
+    })
+}
+
+#[tauri::command]
 async fn diariseAudio() -> Result<String, String> {
     println!("diariseAudio() called");
 
@@ -352,8 +426,15 @@ fn loadProps(props: &HashMap<String, Prop>) -> Result<HashMap<String, LoadedProp
                 &prop.sprites[0],
                 prop.width.unwrap_or(1920),
                 prop.height.unwrap_or(1080),
-                30, // XXX is this even needed?
             )?;
+        }
+        
+        let mut width = 0;
+        let mut height = 0;
+        if let Some(first) = loadedSprites.first() {
+            // read actual dimensions from loaded sprites
+            width = first.width();
+            height = first.height();
         }
 
         loadedProps.insert(id.clone(), LoadedProp {
@@ -361,19 +442,21 @@ fn loadProps(props: &HashMap<String, Prop>) -> Result<HashMap<String, LoadedProp
             sprites: loadedSprites,
             propType: prop.propType.clone(),
             compositeType: prop.compositeType.clone(),
+            width,
+            height,
         });
     }
     Ok(loadedProps)
 }
 
-fn loadVideoFrames(path: &str, width: u32, height: u32, fps: u32) -> Result<Vec<RgbaImage>, String> {
+fn loadVideoFrames(path: &str, width: u32, height: u32) -> Result<Vec<RgbaImage>, String> {
     let mut cmd = std::process::Command::new("ffmpeg")
         .args([
             "-i", path,
             "-f", "rawvideo",
             "-pix_fmt", "rgba",
             "-vf", &format!("scale={}x{}", width, height),
-            "-r", &fps.to_string(),
+            // "-r", &fps.to_string(),
             "-",
         ])
         .stdout(Stdio::piped())

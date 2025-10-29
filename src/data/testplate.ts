@@ -1,6 +1,7 @@
-import { Template } from "../Template";
+import { Template } from "../stage/Template";
 
 export const testplate: Template = {
+    id: 'testplate',
     meta: {
         fps: 30,
         width: 1920,
@@ -20,8 +21,6 @@ export const testplate: Template = {
                 '/assets/pengwyneyes.png',
                 '/assets/pengwyneyes_blink.png',
             ],
-            width: 110,
-            height: 42,
             origin: {
                 x: 294,
                 y: 443,
@@ -34,8 +33,6 @@ export const testplate: Template = {
             sprites: [
                 '/assets/pengwyn_gag.png',
             ],
-            width: 247,
-            height: 43,
             origin: {
                 x: 247,
                 y: 494,
@@ -48,8 +45,6 @@ export const testplate: Template = {
             sprites: [
                 '/assets/pengwynbeak.png',
             ],
-            width: 111,
-            height: 59,
             origin: {
                 x: 307,
                 y: 470,
@@ -75,8 +70,6 @@ export const testplate: Template = {
                 '/assets/kiwieyes.png',
                 '/assets/kiwieyes_blink.png',
             ],
-            width: 100,
-            height: 40,
             origin: {
                 x: 1518,
                 y: 232,
@@ -89,8 +82,6 @@ export const testplate: Template = {
             sprites: [
                 '/assets/kiwibeak.png',
             ],
-            width: 216,
-            height: 88,
             origin: {
                 x: 1379,
                 y: 263,
@@ -130,8 +121,6 @@ export const testplate: Template = {
                 '/assets/clock/clock_blank.png',
                 '/assets/clock/clock_blink.png',
             ],
-            width: 225,
-            height: 125,
             origin: {
                 x: 718,
                 y: 23,
@@ -144,8 +133,6 @@ export const testplate: Template = {
             sprites: [
                 '/assets/calander/calander.png',
             ],
-            width: 148,
-            height: 160,
             origin: {
                 x: 996,
                 y: 0,
@@ -159,8 +146,6 @@ export const testplate: Template = {
                 '/assets/telly.png',
                 '/assets/telly_blink.png',
             ],
-            width: 566,
-            height: 546,
             origin: {
                 x: 651,
                 y: 121,
@@ -173,8 +158,6 @@ export const testplate: Template = {
             sprites: [
                 '/assets/treaty.png',
             ],
-            width: 212,
-            height: 258,
             origin: {
                 x: 1176,
                 y: 442,
@@ -199,7 +182,6 @@ export const testplate: Template = {
                 '/assets/clock/clock_digit9.png',
             ],
             width: 33,
-            height: 74,
             origin: {
                 // relative to clock
                 x: 27,
@@ -223,7 +205,6 @@ export const testplate: Template = {
                 '/assets/calander/calander_digit9.png',
             ],
             width: 45,
-            height: 65,
             origin: {
                 // relative to calander
                 x: 27,
@@ -248,8 +229,6 @@ export const testplate: Template = {
                 '/assets/calander/calander_month11.png',
                 '/assets/calander/calander_month12.png',
             ],
-            width: 87,
-            height: 36,
             origin: {
                 // relative to calander
                 x: 27,

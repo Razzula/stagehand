@@ -9,19 +9,24 @@ import './App.scss';
 
 const STAGEHAND_DIR = '/media/razzula/media2/Programming/Web/';
 
-const generatedSrc2 = new URL('/bin/out2.mp4', import.meta.url).href;
-
 function App() {
 
     const [template, _setTemplate] = useState(testplate);
+
+    const [videoName, setVideoName] = useState<string | null>(null);
 
     const [videoData, setVideoData] = useState<CustomVideoAsset | null>(null);
     const [audioData, setAudioData] = useState<Float32Array | null>(null);
     const [diarisation, setDiarisation] = useState<Record<string, number[][]>>({});
     const [audioSplit, setAudioSplit] = useState<Record<string, number[][]>>({});
 
+    const [speakerMap, setSpeakerMap] = useState<Record<string, string>>({
+        'kiwi': 'SPEAKER_00',
+        'pengwyn': 'SPEAKER_01',
+    });
+
     const [scene, setScene] = useState<Scene | null>(null);
-    
+
     const [frames, setFrames] = useState<string[]>([]);
     const [rendered, setRendered] = useState<boolean | undefined>(false);
 
@@ -29,20 +34,31 @@ function App() {
     const lastDiarisationRef = useRef<string | null>(null);
 
     useEffect(() => {
-        setVideoData({
-            id: 'sample',
-            src: '/assets/sample.mp4',
-            height: 1080,
-            width: 1920,
-            durationSec: 28,
-            audioSampleRate: 48000,
-            datetime: new Date(Date.UTC(2023, 5, 7, 23, 59, 54)),
-            // datetime: new Date(Date.UTC(2023, 5, 7, 22, 58, 54)),
-        });
-    }, []);
+        if (videoName) {
+            const src = `/assets/${videoName}.mp4`;
+            invoke<CustomVideoAsset>('getVideoData', { path: `${STAGEHAND_DIR}/stagehand/public/${src}` })
+                .then(data => {
+                    setVideoData({
+                        id: videoName,
+                        src: src,
+                        height: data.height,
+                        width: data.width,
+                        durationSec: data.durationSec,
+                        audioSampleRate: data.audioSampleRate,
+                        datetime: new Date(data.datetime), // convert ISO string to Date
+                    });
+                });
+        }
+    }, [videoName]);
 
     useMemo(() => {
         extractAudio();
+        setDiarisation({});
+        setRendered(false);
+        setSpeakerMap({
+            'kiwi': 'SPEAKER_00',
+            'pengwyn': 'SPEAKER_01',
+        });
     }, [videoData]);
 
     useMemo(() => {
@@ -53,15 +69,15 @@ function App() {
 
     useMemo(() => {
         setAudioSplit({
-            'kiwi': diarisation?.['SPEAKER_01'],
-            'pengwyn': diarisation?.['SPEAKER_00']
+            'kiwi': diarisation?.[speakerMap?.['kiwi']],
+            'pengwyn': diarisation?.[speakerMap?.['pengwyn']]
         });
-    }, [diarisation]);
+    }, [diarisation, speakerMap]);
 
     useMemo(() => {
-        if (template && videoData)  {
+        if (template && videoData) {
             generatePreviewFrame();
-            if (audioData && audioSplit)  {
+            if (audioData && audioSplit) {
                 sceneFromTemplate(template, [videoData], audioData, audioSplit)
                     .then(scene => setScene(scene));
             }
@@ -122,8 +138,15 @@ function App() {
         }
     }
 
+    async function updateVideoSource() {
+        const name = prompt('video source name');
+        if (name && name !== videoName) {
+            setVideoName(name);
+        }
+    }
+
     return (
-        <div className='quarterise main'>
+        <div className={`${videoName ? 'quarterise' : 'section'} main`}>
 
             {/* Top Row */}
             <div className='section'>
@@ -133,6 +156,12 @@ function App() {
                     <div className='section'>
                         <div>{'testplate'}</div>
                         <div>{videoData?.src}</div>
+                        <button
+                            onClick={updateVideoSource}
+                            disabled={rendered === undefined}
+                        >
+                            {videoName ? 'Select' : 'Change'} Clip
+                        </button>
                     </div>
 
                     <div className='section'>
@@ -141,6 +170,7 @@ function App() {
                             src={new URL(videoData?.src ?? '', import.meta.url).href} controls
                         />
                     </div>
+
 
                     <div className='section'>
                         {/* <h2>Template</h2> */}
@@ -151,55 +181,98 @@ function App() {
 
                     <div className='section'>
                         <div className='quaterise'>
-                        {
-                            [...template.heads, ...template.others].map(prop => (
-                                <img className='pane'
-                                    src={new URL(prop.sprites?.[0], import.meta.url).href}
-                                />
-                            ))
-                        }
+                            {
+                                [...template.heads, ...template.others].map(prop => (
+                                    <img className='pane'
+                                        src={new URL(prop.sprites?.[0], import.meta.url).href}
+                                    />
+                                ))
+                            }
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div className='section'>
-                <h2>Preview</h2>
-                {frames[0] && <img className='pane' src={frames[0]} />}
-            </div>
-
-            {/* Bottom Row */}
-            <div className='section'>
-                <h2>
-                    Render{rendered ? 'ed' : (rendered === undefined ? 'ing' : '')} Video
-                </h2>
-                {rendered &&
-                    <video className='pane' src={generatedSrc2} controls />
-                }
-                {rendered === false &&
-                    <button
-                        onClick={renderVideo}
-                        disabled={scene === null}
-                    >
-                        { scene ? 'Render Video' : 'Loading...' }
-                    </button>
-                }
-                {rendered === undefined &&
-                    <div className='loader'>
-                        Loading...
+            {videoName &&
+                <>
+                    <div className='section'>
+                        <h2>Preview</h2>
+                        {frames[0] && <img className='pane' src={frames[0]} />}
                     </div>
-                }
-            </div>
 
-            <div className='section'>
-                <h2>Controls</h2>
-                <button
-                    onClick={renderVideo}
-                    disabled={scene === null}
-                >
-                    { scene ? 'Render Video' : 'Loading...' }
-                </button>
-            </div>
+                    {/* Bottom Row */}
+                    <div className='section'>
+                        <h2>
+                            Render{rendered ? 'ed' : (rendered === undefined ? 'ing' : '')} Video
+                        </h2>
+                        {rendered &&
+                            <video className='pane' src={new URL(`/bin/${videoData?.id}.mp4`, import.meta.url).href} controls />
+                        }
+                        {rendered === false &&
+                            <button
+                                onClick={renderVideo}
+                                disabled={scene === null}
+                            >
+                                {scene ? 'Render Video' : 'Loading...'}
+                            </button>
+                        }
+                        {rendered === undefined &&
+                            <div className='loader'>
+                                Loading...
+                            </div>
+                        }
+                    </div>
+
+                    <div className='section'>
+                        <h2>Controls</h2>
+                        <div>
+                            <h3>Audio</h3>
+                            {isDiarisingRef.current ? (
+                                'Diarising...'
+                            ) : (
+                                <div className='audioList'>
+                                    <ul>
+                                        {Object.entries(diarisation).map(([key, value]) => (
+                                            <li className='audioItem' key={key}>
+                                                <span className='speakerLabel'>{key}</span>
+                                                <div className='audioControls'>
+                                                    <div className='audioValues'>
+                                                        {value.map((v, i) => (
+                                                            <span key={i} className='audioChip'>[{v}]</span>
+                                                        ))}
+                                                    </div>
+                                                    <select
+                                                        value={Object.entries(speakerMap).find(([_, speaker]) => speaker === key)?.[0] ?? ''}
+                                                        onChange={(e) => {
+                                                            const chosenCharacter = e.target.value;
+                                                            setSpeakerMap(prev => ({ ...prev, [chosenCharacter]: key }));
+                                                        }}
+                                                    >
+                                                        {Object.keys(speakerMap).map(character => (
+                                                            <option key={character} value={character}>
+                                                                {character}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+                        <div>
+                            <h3>Video</h3>
+                            <button
+                                onClick={renderVideo}
+                                disabled={scene === null}
+                            >
+                                {scene ? 'Render Video' : 'Loading...'}
+                            </button>
+                        </div>
+                    </div>
+                </>
+            }
 
         </div>
     );

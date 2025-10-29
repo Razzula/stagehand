@@ -1,6 +1,6 @@
 import seedrandom from 'seedrandom';
 
-import { Template } from '../Template';
+import { Template } from './Template';
 import { Prop, Scene, Script, StageDirection } from './stage';
 
 const STAGEHAND_DIR = '/media/razzula/media2/Programming/Web/';
@@ -18,8 +18,8 @@ export function scriptFromTemplate(
 
     const id = `frame_${frame}`;
 
-    const canvasW = template.background.width;
-    const canvasH = template.background.height;
+    const canvasW = template.background.width ?? 1920;
+    const canvasH = template.background.height ?? 1080;
 
     if (frameW === undefined) {
         frameW = canvasW;
@@ -50,7 +50,6 @@ export function scriptFromTemplate(
         const id = head.id;
 
         if (id === 'pengwyn-gagged') {
-            console.log(audioSplit?.['pengwyn']?.length);
             if (audioSplit?.['pengwyn'] && audioSplit?.['pengwyn']?.length > 0) {
                 // gag not needed
                 continue;
@@ -61,8 +60,6 @@ export function scriptFromTemplate(
         const normY = (head.origin.y / canvasH); // XXX
         const px = origin.x + Math.round(normX * canvasW);
         const py = origin.y + Math.round(normY * canvasH);
-        const w = Math.round((head.width / canvasW) * canvasW); // XXX
-        const h = Math.round((head.height / canvasH) * canvasH); // XXX
 
         // bob head according to audio volume
         const bob = Math.round((audioVolume?.[id] ?? 0) * -40);
@@ -75,8 +72,8 @@ export function scriptFromTemplate(
             sprite: blinker?.isBlink(frame) ? 1 : 0,//XXX
             x: px,
             y: py + bob,
-            width: w,
-            height: h,
+            width: head.width,
+            height: head.height,
         });
     }
 
@@ -87,17 +84,14 @@ export function scriptFromTemplate(
         const normY = (template.video.origin.y / canvasH); // XXX
         const px = origin.x + Math.round(normX * canvasW);
         const py = origin.y + Math.round(normY * canvasH);
-        const w = Math.round((template.video.width / canvasW) * canvasW); // XXX
-        const h = Math.round((template.video.height / canvasH) * canvasH); // XXX
 
-        
         props.push({
             prop: id,
             sprite: frame,
             x: px,
             y: py,
-            width: w,
-            height: h,
+            width: template.video.width,
+            height: template.video.height,
         });
     }
     
@@ -108,8 +102,6 @@ export function scriptFromTemplate(
         const normY = (other.origin.y / canvasH); // XXX
         const px = origin.x + Math.round(normX * canvasW);
         const py = origin.y + Math.round(normY * canvasH);
-        const w = Math.round((other.width / canvasW) * canvasW); // XXX
-        const h = Math.round((other.height / canvasH) * canvasH); // XXX
         
         const blinker = prngs?.[id];
 
@@ -118,8 +110,8 @@ export function scriptFromTemplate(
             sprite: blinker?.isBlink(frame) ? 1 : 0,
             x: px,
             y: py,
-            width: w,
-            height: h,
+            width: other.width,
+            height: other.height,
         });
 
         const currentDatetime = datetime ?? customAssets[0]?.datetime;
@@ -136,8 +128,8 @@ export function scriptFromTemplate(
                     const normY = (digitTemplate.origin.y / canvasH); // XXX
                     const dpx = px + Math.round(normX * canvasW);
                     const dpy = py + Math.round(normY * canvasH);
-                    const w = Math.round((digitTemplate.width / canvasW) * canvasW); // XXX
-                    const h = Math.round((digitTemplate.height / canvasH) * canvasH); // XXX
+
+                    const w = digitTemplate.width ?? 0;
     
                     digits.forEach((digit, i) => {
                         props.push({
@@ -145,8 +137,8 @@ export function scriptFromTemplate(
                             sprite: Number(digit),
                             x: Math.round(dpx + (i >=2 ? w : 0) + (w * i)), // XXX
                             y: dpy,
-                            width: w,
-                            height: h,
+                            width: digitTemplate.width,
+                            height: digitTemplate.height,
                         });
                     });
                 }
@@ -161,8 +153,8 @@ export function scriptFromTemplate(
                     const normY = (digitTemplate.origin.y / canvasH); // XXX
                     const dpx = px + Math.round(normX * canvasW);
                     const dpy = py + Math.round(normY * canvasH);
-                    const w = Math.round((digitTemplate.width / canvasW) * canvasW); // XXX
-                    const h = Math.round((digitTemplate.height / canvasH) * canvasH); // XXX
+
+                    const w = digitTemplate.width ?? 0;
     
                     digits.forEach((digit, i) => {
                         props.push({
@@ -170,29 +162,27 @@ export function scriptFromTemplate(
                             sprite: Number(digit),
                             x: Math.round(dpx + (w * i)),
                             y: dpy,
-                            width: w,
-                            height: h,
+                            width: digitTemplate.width,
+                            height: digitTemplate.height,
                         });
                     });
                 }
                 const monthTemplate = template.extra.find(e => e.id === 'calander-month');
                 if (monthTemplate) {
-                    const digit = currentDatetime.getMonth() - 1;
+                    const digit = currentDatetime.getUTCMonth();
 
                     const normX = (monthTemplate.origin.x / canvasW); // XXX
                     const normY = (monthTemplate.origin.y / canvasH); // XXX
                     const dpx = px + Math.round(normX * canvasW);
                     const dpy = py + Math.round(normY * canvasH);
-                    const w = Math.round((monthTemplate.width / canvasW) * canvasW); // XXX
-                    const h = Math.round((monthTemplate.height / canvasH) * canvasH); // XXX
     
                     props.push({
                         prop: monthTemplate.id,
                         sprite: digit,
                         x: dpx,
                         y: dpy,
-                        width: w,
-                        height: h,
+                        width: monthTemplate.width,
+                        height: monthTemplate.height,
                     });
                 }
             }
@@ -370,12 +360,14 @@ export async function sceneFromTemplate(
 
     console.log('scene completed');
     return {
+        id: customAssets?.[0].id ?? template.id,
         fps,
         canvasSize: {
             width: frameW ?? template.background.width,
             height: frameH ?? template.background.height,
         },
         props,
+        audio: customAssets?.[0].src,
         frames,
     };
 }
