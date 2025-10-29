@@ -30,6 +30,20 @@ export const testplate: Template = {
             compositeType: 'paste',
         },
         {
+            id: 'pengwyn-gagged',
+            sprites: [
+                '/assets/pengwyn_gag.png',
+            ],
+            width: 247,
+            height: 43,
+            origin: {
+                x: 247,
+                y: 494,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
             id: 'pengwyn',
             sprites: [
                 '/assets/pengwynbeak.png',

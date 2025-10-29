@@ -16,6 +16,7 @@ export interface Template {
     heads: FixedAsset[];
     others: FixedAsset[];
     video: CustomAsset;
+    extra: FixedAsset[];
 }
 
 export interface FixedAsset {
