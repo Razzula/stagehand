@@ -145,25 +145,25 @@ export function scriptFromTemplate(
             }
             // CALANDER
             else if (id === 'calander') {
-                const digitTemplate = template.extra.find(e => e.id === 'calander-digit');
-                if (digitTemplate) {
+                const dayTemplate = template.extra.find(e => e.id === 'calander-day');
+                if (dayTemplate) {
                     const digits = currentDatetime.getUTCDate().toString().padStart(2, '0').split('');
 
-                    const normX = (digitTemplate.origin.x / canvasW); // XXX
-                    const normY = (digitTemplate.origin.y / canvasH); // XXX
+                    const normX = (dayTemplate.origin.x / canvasW); // XXX
+                    const normY = (dayTemplate.origin.y / canvasH); // XXX
                     const dpx = px + Math.round(normX * canvasW);
                     const dpy = py + Math.round(normY * canvasH);
 
-                    const w = digitTemplate.width ?? 0;
+                    const w = dayTemplate.width ?? 0;
     
                     digits.forEach((digit, i) => {
                         props.push({
-                            prop: digitTemplate.id,
+                            prop: dayTemplate.id,
                             sprite: Number(digit),
                             x: Math.round(dpx + (w * i)),
                             y: dpy,
-                            width: digitTemplate.width,
-                            height: digitTemplate.height,
+                            width: dayTemplate.width,
+                            height: dayTemplate.height,
                         });
                     });
                 }
@@ -183,6 +183,28 @@ export function scriptFromTemplate(
                         y: dpy,
                         width: monthTemplate.width,
                         height: monthTemplate.height,
+                    });
+                }
+                const yearTemplate = template.extra.find(e => e.id === 'calander-year');
+                if (yearTemplate) {
+                    const digits = currentDatetime.getUTCFullYear().toString().split('');
+    
+                    const normX = (yearTemplate.origin.x / canvasW); // XXX
+                    const normY = (yearTemplate.origin.y / canvasH); // XXX
+                    const dpx = px + Math.round(normX * canvasW);
+                    const dpy = py + Math.round(normY * canvasH);
+    
+                    const w = yearTemplate.width ?? 0;
+    
+                    digits.forEach((digit, i) => {
+                        props.push({
+                            prop: yearTemplate.id,
+                            sprite: Number(digit),
+                            x: Math.round(dpx + (w * i)),
+                            y: dpy,
+                            width: yearTemplate.width,
+                            height: yearTemplate.height,
+                        });
                     });
                 }
             }
@@ -270,13 +292,13 @@ export async function sceneFromTemplate(
         }
         else if (other.id === 'calander') {
             // load calander digits if clock is in use
-            const digitTemplate = template.extra.find(e => e.id === 'calander-digit');
-            if (digitTemplate) {
-                props[digitTemplate.id] = {
-                    id: digitTemplate.id,
-                    sprites: digitTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
-                    propType: digitTemplate.propType,
-                    compositeType: digitTemplate.compositeType,
+            const dayTemplate = template.extra.find(e => e.id === 'calander-day');
+            if (dayTemplate) {
+                props[dayTemplate.id] = {
+                    id: dayTemplate.id,
+                    sprites: dayTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
+                    propType: dayTemplate.propType,
+                    compositeType: dayTemplate.compositeType,
                 }
             }
             const monthTemplate = template.extra.find(e => e.id === 'calander-month');
@@ -286,6 +308,15 @@ export async function sceneFromTemplate(
                     sprites: monthTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
                     propType: monthTemplate.propType,
                     compositeType: monthTemplate.compositeType,
+                }
+            }
+            const yearTemplate = template.extra.find(e => e.id === 'calander-year');
+            if (yearTemplate) {
+                props[yearTemplate.id] = {
+                    id: yearTemplate.id,
+                    sprites: yearTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
+                    propType: yearTemplate.propType,
+                    compositeType: yearTemplate.compositeType,
                 }
             }
         }

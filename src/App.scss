@@ -134,4 +134,22 @@ select {
     padding: 0.25rem 0.4rem;
     font-size: 0.8rem;
     cursor: pointer;
+    appearance: none;
+    outline: none;
+    transition: border-color 0.2s, background-color 0.2s;
+
+    &:hover {
+        border-color: lighten($border-colour, 10%);
+        background-color: lighten($card-bg, 3%);
+    }
+
+    &:focus {
+        border-color: lighten($border-colour, 20%);
+        background-color: lighten($card-bg, 5%);
+    }
+
+    option {
+        background-color: $card-bg;
+        color: $text-colour;
+    }
 }
