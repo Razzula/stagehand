@@ -191,7 +191,7 @@ export const testplate: Template = {
             compositeType: 'paste',
         },
         {
-            id: 'calander-digit',
+            id: 'calander-day',
             sprites: [
                 '/assets/calander/calander_digit0.png',
                 '/assets/calander/calander_digit1.png',
@@ -204,11 +204,11 @@ export const testplate: Template = {
                 '/assets/calander/calander_digit8.png',
                 '/assets/calander/calander_digit9.png',
             ],
-            width: 45,
+            width: 27,
             origin: {
                 // relative to calander
-                x: 27,
-                y: 61,
+                x: 38,
+                y: 14,
             },
             propType: 'image',
             compositeType: 'paste',
@@ -231,8 +231,31 @@ export const testplate: Template = {
             ],
             origin: {
                 // relative to calander
-                x: 27,
-                y: 18,
+                x: 24,
+                y: 58,
+            },
+            propType: 'image',
+            compositeType: 'paste',
+        },
+        {
+            id: 'calander-year',
+            sprites: [
+                '/assets/calander/calander_digit0.png',
+                '/assets/calander/calander_digit1.png',
+                '/assets/calander/calander_digit2.png',
+                '/assets/calander/calander_digit3.png',
+                '/assets/calander/calander_digit4.png',
+                '/assets/calander/calander_digit5.png',
+                '/assets/calander/calander_digit6.png',
+                '/assets/calander/calander_digit7.png',
+                '/assets/calander/calander_digit8.png',
+                '/assets/calander/calander_digit9.png',
+            ],
+            width: 27,
+            origin: {
+                // relative to calander
+                x: 12,
+                y: 96,
             },
             propType: 'image',
             compositeType: 'paste',

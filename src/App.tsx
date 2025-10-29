@@ -160,7 +160,7 @@ function App() {
                             onClick={updateVideoSource}
                             disabled={rendered === undefined}
                         >
-                            {videoName ? 'Select' : 'Change'} Clip
+                            {videoName ? 'Change' : 'Select'} Clip
                         </button>
                     </div>
 
@@ -238,7 +238,7 @@ function App() {
                                                 <div className='audioControls'>
                                                     <div className='audioValues'>
                                                         {value.map((v, i) => (
-                                                            <span key={i} className='audioChip'>[{v}]</span>
+                                                            <span key={i} className='audioChip'>[{v[0]}–{v[1]}]</span>
                                                         ))}
                                                     </div>
                                                     <select
