@@ -36,7 +36,8 @@ function App() {
             width: 1920,
             durationSec: 28,
             audioSampleRate: 48000,
-            datetime: new Date(Date.UTC(2023, 5, 7, 22, 58, 49)),
+            datetime: new Date(Date.UTC(2023, 5, 7, 23, 59, 54)),
+            // datetime: new Date(Date.UTC(2023, 5, 7, 22, 58, 54)),
         });
     }, []);
 
@@ -60,19 +61,16 @@ function App() {
     useMemo(() => {
         if (template && videoData)  {
             generatePreviewFrame();
+            if (audioData && audioSplit)  {
+                sceneFromTemplate(template, [videoData], audioData, audioSplit)
+                    .then(scene => setScene(scene));
+            }
         }
-    }, [template, videoData]);
-
-    useMemo(() => {
-        if (template && videoData && audioData && audioSplit)  {
-            sceneFromTemplate(template, [videoData], audioData, audioSplit)
-                .then(scene => setScene(scene));
-        }
-    }, [template, videoData, audioSplit]);
+    }, [template, videoData, audioData, audioSplit]);
 
     async function generatePreviewFrame() {
         if (videoData) {
-            const scene = await sceneFromTemplate(template, [videoData], null, {});
+            const scene = await sceneFromTemplate(template, [videoData], audioData, audioSplit);
             const singleFrameScene: Scene = { ...scene, frames: [scene.frames[0]] };
             const render = await invoke('renderFrame', { payload: singleFrameScene });
             setFrames([render as string]);

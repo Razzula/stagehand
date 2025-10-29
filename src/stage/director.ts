@@ -9,6 +9,7 @@ export function scriptFromTemplate(
     template: Template,
     customAssets: CustomVideoAsset[],
     frame: number, _frameTimeSec: number,
+    audioSplit?: Record<string, number[][]>,
     audioVolume?: Record<string, number>,
     prngs?: Record<string, Blinker>,
     frameW?: number, frameH?: number,
@@ -47,6 +48,14 @@ export function scriptFromTemplate(
 
     for (const head of template.heads) {
         const id = head.id;
+
+        if (id === 'pengwyn-gagged') {
+            console.log(audioSplit?.['pengwyn']?.length);
+            if (audioSplit?.['pengwyn'] && audioSplit?.['pengwyn']?.length > 0) {
+                // gag not needed
+                continue;
+            }
+        }
 
         const normX = (head.origin.x / canvasW); // XXX
         const normY = (head.origin.y / canvasH); // XXX
@@ -119,8 +128,8 @@ export function scriptFromTemplate(
             if (id === 'clock') {
                 const digitTemplate = template.extra.find(e => e.id === 'clock-digit');
                 if (digitTemplate) {
-                    const hours = currentDatetime.getHours().toString().padStart(2, '0');
-                    const mins = currentDatetime.getMinutes().toString().padStart(2, '0');
+                    const hours = currentDatetime.getUTCHours().toString().padStart(2, '0');
+                    const mins = currentDatetime.getUTCMinutes().toString().padStart(2, '0');
                     const digits = [...hours, ...mins,]
     
                     const normX = (digitTemplate.origin.x / canvasW); // XXX
@@ -146,7 +155,7 @@ export function scriptFromTemplate(
             else if (id === 'calander') {
                 const digitTemplate = template.extra.find(e => e.id === 'calander-digit');
                 if (digitTemplate) {
-                    const digits = currentDatetime.getDate().toString().padStart(2, '0').split('');
+                    const digits = currentDatetime.getUTCDate().toString().padStart(2, '0').split('');
 
                     const normX = (digitTemplate.origin.x / canvasW); // XXX
                     const normY = (digitTemplate.origin.y / canvasH); // XXX
@@ -351,7 +360,7 @@ export async function sceneFromTemplate(
         const script = scriptFromTemplate(
             template, customAssets,
             i + 1, frameTimeSec,
-            filteredVolumesPerFrame[i] ?? undefined,
+            audioSplit, filteredVolumesPerFrame[i] ?? undefined,
             prngs,
             frameW, frameH,
             datetime,
