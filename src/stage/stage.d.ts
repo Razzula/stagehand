@@ -2,7 +2,7 @@ export type PropType = 'image' | 'video';
 export type CompositeType = 'overlay' | 'paste';
 
 export interface Scene {
-    id?: string;
+    id: string;
     fps: number;
     canvasSize: {
         // pixels
@@ -10,10 +10,9 @@ export interface Scene {
         height: number;
     };
     props: Record<string, Prop>;
+    audio: string,
 
     frames: Script[],
-
-    outputPath?: string;
 }
 
 export interface Script {
@@ -37,8 +36,8 @@ export interface StageDirection {
     sprite?: number;
 
     // common
-    x: number;          // pixel top-left
-    y: number;          // pixel top-left
-    width: number;      // pixel
-    height: number;     // pixel
+    x: number;          // px top-left
+    y: number;          // px top-left
+    width?: number;     // px
+    height?: number;    // px
 }
