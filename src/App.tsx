@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 
 import { sceneFromTemplate, CustomVideoAsset } from './stage/director';
@@ -25,6 +25,9 @@ function App() {
     const [frames, setFrames] = useState<string[]>([]);
     const [rendered, setRendered] = useState<boolean | undefined>(false);
 
+    const isDiarisingRef = useRef(false);
+    const lastDiarisationRef = useRef<string | null>(null);
+
     useEffect(() => {
         setVideoData({
             id: 'sample',
@@ -33,6 +36,7 @@ function App() {
             width: 1920,
             durationSec: 28,
             audioSampleRate: 48000,
+            datetime: new Date(Date.UTC(2023, 5, 7, 22, 58, 49)),
         });
     }, []);
 
@@ -46,7 +50,7 @@ function App() {
         }
     }, [audioData]);
 
-    useEffect(() => {
+    useMemo(() => {
         setAudioSplit({
             'kiwi': diarisation?.['SPEAKER_01'],
             'pengwyn': diarisation?.['SPEAKER_00']
@@ -88,8 +92,25 @@ function App() {
     }
 
     async function diariseAudio() {
-        const diarisation: string = await invoke('diariseAudio');
-        setDiarisation(JSON.parse(diarisation));
+        if (isDiarisingRef.current) {
+            return;
+        }
+        isDiarisingRef.current = true;
+
+        try {
+            const diarisation = await invoke('diariseAudio') as string;
+            if (diarisation !== lastDiarisationRef.current) {
+                lastDiarisationRef.current = diarisation;
+                setDiarisation(JSON.parse(diarisation));
+            }
+        }
+        catch (e) {
+            console.error('Diarisation failed', e);
+        }
+        finally {
+            // small delay to avoid immediate re-trigger from file churn
+            setTimeout(() => { isDiarisingRef.current = false; }, 250);
+        }
     }
 
     async function renderVideo() {
@@ -133,12 +154,9 @@ function App() {
                     <div className='section'>
                         <div className='quaterise'>
                         {
-                            template.heads.map(head => (
+                            [...template.heads, ...template.others].map(prop => (
                                 <img className='pane'
-                                    src={new URL(head.sprites?.[0], import.meta.url).href}
-                                    // style={{
-                                    //     width: head.width, height: head.height,
-                                    // }}
+                                    src={new URL(prop.sprites?.[0], import.meta.url).href}
                                 />
                             ))
                         }
