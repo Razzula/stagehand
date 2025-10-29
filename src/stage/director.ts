@@ -11,7 +11,8 @@ export function scriptFromTemplate(
     frame: number, _frameTimeSec: number,
     audioVolume?: Record<string, number>,
     prngs?: Record<string, Blinker>,
-    frameW?: number, frameH?: number
+    frameW?: number, frameH?: number,
+    datetime?: Date,
 ): Script {
 
     const id = `frame_${frame}`;
@@ -111,6 +112,82 @@ export function scriptFromTemplate(
             width: w,
             height: h,
         });
+
+        const currentDatetime = datetime ?? customAssets[0]?.datetime;
+        if (currentDatetime) {
+            // CLOCK
+            if (id === 'clock') {
+                const digitTemplate = template.extra.find(e => e.id === 'clock-digit');
+                if (digitTemplate) {
+                    const hours = currentDatetime.getHours().toString().padStart(2, '0');
+                    const mins = currentDatetime.getMinutes().toString().padStart(2, '0');
+                    const digits = [...hours, ...mins,]
+    
+                    const normX = (digitTemplate.origin.x / canvasW); // XXX
+                    const normY = (digitTemplate.origin.y / canvasH); // XXX
+                    const dpx = px + Math.round(normX * canvasW);
+                    const dpy = py + Math.round(normY * canvasH);
+                    const w = Math.round((digitTemplate.width / canvasW) * canvasW); // XXX
+                    const h = Math.round((digitTemplate.height / canvasH) * canvasH); // XXX
+    
+                    digits.forEach((digit, i) => {
+                        props.push({
+                            prop: digitTemplate.id,
+                            sprite: Number(digit),
+                            x: Math.round(dpx + (i >=2 ? w : 0) + (w * i)), // XXX
+                            y: dpy,
+                            width: w,
+                            height: h,
+                        });
+                    });
+                }
+            }
+            // CALANDER
+            else if (id === 'calander') {
+                const digitTemplate = template.extra.find(e => e.id === 'calander-digit');
+                if (digitTemplate) {
+                    const digits = currentDatetime.getDate().toString().padStart(2, '0').split('');
+
+                    const normX = (digitTemplate.origin.x / canvasW); // XXX
+                    const normY = (digitTemplate.origin.y / canvasH); // XXX
+                    const dpx = px + Math.round(normX * canvasW);
+                    const dpy = py + Math.round(normY * canvasH);
+                    const w = Math.round((digitTemplate.width / canvasW) * canvasW); // XXX
+                    const h = Math.round((digitTemplate.height / canvasH) * canvasH); // XXX
+    
+                    digits.forEach((digit, i) => {
+                        props.push({
+                            prop: digitTemplate.id,
+                            sprite: Number(digit),
+                            x: Math.round(dpx + (w * i)),
+                            y: dpy,
+                            width: w,
+                            height: h,
+                        });
+                    });
+                }
+                const monthTemplate = template.extra.find(e => e.id === 'calander-month');
+                if (monthTemplate) {
+                    const digit = currentDatetime.getMonth() - 1;
+
+                    const normX = (monthTemplate.origin.x / canvasW); // XXX
+                    const normY = (monthTemplate.origin.y / canvasH); // XXX
+                    const dpx = px + Math.round(normX * canvasW);
+                    const dpy = py + Math.round(normY * canvasH);
+                    const w = Math.round((monthTemplate.width / canvasW) * canvasW); // XXX
+                    const h = Math.round((monthTemplate.height / canvasH) * canvasH); // XXX
+    
+                    props.push({
+                        prop: monthTemplate.id,
+                        sprite: digit,
+                        x: dpx,
+                        y: dpy,
+                        width: w,
+                        height: h,
+                    });
+                }
+            }
+        }
     }
 
     return {
@@ -126,6 +203,7 @@ export interface CustomVideoAsset {
     height: number;
     durationSec?: number;
     audioSampleRate: number;
+    datetime: Date;
 }
 
 export async function sceneFromTemplate(
@@ -178,6 +256,40 @@ export async function sceneFromTemplate(
             propType: other.propType,
             compositeType: other.compositeType,
         };
+
+        if (other.id === 'clock') {
+            // load clock digits if clock is in use
+            const digitTemplate = template.extra.find(e => e.id === 'clock-digit');
+            if (digitTemplate) {
+                props[digitTemplate.id] = {
+                    id: digitTemplate.id,
+                    sprites: digitTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
+                    propType: digitTemplate.propType,
+                    compositeType: digitTemplate.compositeType,
+                }
+            }
+        }
+        else if (other.id === 'calander') {
+            // load calander digits if clock is in use
+            const digitTemplate = template.extra.find(e => e.id === 'calander-digit');
+            if (digitTemplate) {
+                props[digitTemplate.id] = {
+                    id: digitTemplate.id,
+                    sprites: digitTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
+                    propType: digitTemplate.propType,
+                    compositeType: digitTemplate.compositeType,
+                }
+            }
+            const monthTemplate = template.extra.find(e => e.id === 'calander-month');
+            if (monthTemplate) {
+                props[monthTemplate.id] = {
+                    id: monthTemplate.id,
+                    sprites: monthTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
+                    propType: monthTemplate.propType,
+                    compositeType: monthTemplate.compositeType,
+                }
+            }
+        }
     }
 
     // handle audio
@@ -207,13 +319,24 @@ export async function sceneFromTemplate(
     });
     template.others.forEach(other => {
         if (other.sprites.length > 1) {
-            prngs[other.id] = new Blinker(
-                0.3 * fps, 3 * fps,
-                0.3 * fps, 1.2 * fps,
-                seedrandom(`${customAssets?.[0].src ?? 'null'}-${other.id}`)
-            );
+            if (other.id === 'clock') {
+                prngs[other.id] = new Blinker(
+                    fps, fps,
+                    fps, fps,
+                    seedrandom(`${customAssets?.[0].src ?? 'null'}-${other.id}`)
+                );
+            }
+            else {
+                prngs[other.id] = new Blinker(
+                    0.3 * fps, 3 * fps,
+                    0.3 * fps, 1.2 * fps,
+                    seedrandom(`${customAssets?.[0].src ?? 'null'}-${other.id}`)
+                );
+            }
         }
     });
+
+    let datetime = customAssets?.[0]?.datetime ?? undefined;
 
     // calculate frames
     const totalFrames = durationSec * fps;
@@ -221,12 +344,17 @@ export async function sceneFromTemplate(
     console.log('audioFrames:', volumesPerFrame.length);
     for (let i = 0; i < totalFrames; i++) {
         const frameTimeSec = i / fps;
+        if (datetime && frameTimeSec % 1 === 0) {
+            // a second has passed
+            datetime = new Date(datetime.getTime() + 1000);
+        }
         const script = scriptFromTemplate(
             template, customAssets,
             i + 1, frameTimeSec,
             filteredVolumesPerFrame[i] ?? undefined,
             prngs,
             frameW, frameH,
+            datetime,
         );
         frames.push(script);
     }

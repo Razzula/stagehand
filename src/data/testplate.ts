@@ -99,17 +99,46 @@ export const testplate: Template = {
     ],
     video: {
         id: 'sample',
-        width: 515,
-        height: 290,
+        width: 487,
+        height: 274,
         origin: {
-            x: 676,
-            y: 312,
+            x: 693,
+            y: 317,
         },
         paths: {},
         propType: 'video',
         compositeType: 'paste',
     },
     others: [
+        {
+            id: 'clock',
+            sprites: [
+                '/assets/clock/clock_blank.png',
+                '/assets/clock/clock_blink.png',
+            ],
+            width: 225,
+            height: 125,
+            origin: {
+                x: 718,
+                y: 23,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'calander',
+            sprites: [
+                '/assets/calander/calander.png',
+            ],
+            width: 148,
+            height: 160,
+            origin: {
+                x: 996,
+                y: 0,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
         {
             id: 'telly',
             sprites: [
@@ -133,11 +162,87 @@ export const testplate: Template = {
             width: 212,
             height: 258,
             origin: {
-                x: 1161,
+                x: 1176,
                 y: 442,
             },
             propType: 'image',
             compositeType: 'overlay',
+        },
+    ],
+    extra: [
+        {
+            id: 'clock-digit',
+            sprites: [
+                '/assets/clock/clock_digit0.png',
+                '/assets/clock/clock_digit1.png',
+                '/assets/clock/clock_digit2.png',
+                '/assets/clock/clock_digit3.png',
+                '/assets/clock/clock_digit4.png',
+                '/assets/clock/clock_digit5.png',
+                '/assets/clock/clock_digit6.png',
+                '/assets/clock/clock_digit7.png',
+                '/assets/clock/clock_digit8.png',
+                '/assets/clock/clock_digit9.png',
+            ],
+            width: 33,
+            height: 74,
+            origin: {
+                // relative to clock
+                x: 27,
+                y: 24,
+            },
+            propType: 'image',
+            compositeType: 'paste',
+        },
+        {
+            id: 'calander-digit',
+            sprites: [
+                '/assets/calander/calander_digit0.png',
+                '/assets/calander/calander_digit1.png',
+                '/assets/calander/calander_digit2.png',
+                '/assets/calander/calander_digit3.png',
+                '/assets/calander/calander_digit4.png',
+                '/assets/calander/calander_digit5.png',
+                '/assets/calander/calander_digit6.png',
+                '/assets/calander/calander_digit7.png',
+                '/assets/calander/calander_digit8.png',
+                '/assets/calander/calander_digit9.png',
+            ],
+            width: 45,
+            height: 65,
+            origin: {
+                // relative to calander
+                x: 27,
+                y: 61,
+            },
+            propType: 'image',
+            compositeType: 'paste',
+        },
+        {
+            id: 'calander-month',
+            sprites: [
+                '/assets/calander/calander_month1.png',
+                '/assets/calander/calander_month2.png',
+                '/assets/calander/calander_month3.png',
+                '/assets/calander/calander_month4.png',
+                '/assets/calander/calander_month5.png',
+                '/assets/calander/calander_month6.png',
+                '/assets/calander/calander_month7.png',
+                '/assets/calander/calander_month8.png',
+                '/assets/calander/calander_month9.png',
+                '/assets/calander/calander_month10.png',
+                '/assets/calander/calander_month11.png',
+                '/assets/calander/calander_month12.png',
+            ],
+            width: 87,
+            height: 36,
+            origin: {
+                // relative to calander
+                x: 27,
+                y: 18,
+            },
+            propType: 'image',
+            compositeType: 'paste',
         },
     ],
 }
