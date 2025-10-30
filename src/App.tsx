@@ -6,12 +6,14 @@ import { testplate } from './data/testplate';
 import { Scene } from './stage/stage';
 
 import './App.scss';
+import { Template } from './stage/Template';
 
 const STAGEHAND_DIR = '/media/razzula/media2/Programming/Web/';
 
 function App() {
 
-    const [template, _setTemplate] = useState(testplate);
+    const [trueTemplate, _setTrueTemplate] = useState<Template>(testplate);
+    const [template, setTemplate] = useState<Template>(testplate);
 
     const [videoName, setVideoName] = useState<string | null>(null);
 
@@ -32,6 +34,10 @@ function App() {
 
     const isDiarisingRef = useRef(false);
     const lastDiarisationRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        setTemplate({...trueTemplate});
+    }, [trueTemplate]);
 
     useEffect(() => {
         if (videoName) {
@@ -145,6 +151,21 @@ function App() {
         }
     }
 
+    function toggleProp(propID: string) {
+        const newTemplate = {...template};
+        [...newTemplate.heads, ...newTemplate.others].forEach(prop => {
+            if (prop.id === propID) {
+                if (prop.disabled === undefined) {
+                    prop.disabled = true;
+                }
+                else {
+                    prop.disabled = !prop.disabled;
+                }
+            }
+        });
+        setTemplate(newTemplate);
+    }
+
     return (
         <div className={`${videoName ? 'quarterise' : 'section'} main`}>
 
@@ -183,8 +204,9 @@ function App() {
                         <div className='quaterise'>
                             {
                                 [...template.heads, ...template.others].map(prop => (
-                                    <img className='pane'
+                                    <img className={`pane ${prop.disabled ? 'propDisabled' : 'propEnabled'}`}
                                         src={new URL(prop.sprites?.[0], import.meta.url).href}
+                                        onClick={() => toggleProp(prop.id)}
                                     />
                                 ))
                             }

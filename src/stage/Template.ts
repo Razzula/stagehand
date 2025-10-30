@@ -25,6 +25,9 @@ export interface FixedAsset {
     propType: PropType;
     compositeType: CompositeType;
 
+    class?: string;
+    disabled?: boolean;
+
     sprites: string[];
 
     width?: number;
