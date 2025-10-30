@@ -73,6 +73,18 @@ body {
     background-color: #ff00ff; // placeholder so we can see it
 }
 
+.propEnabled {
+    border: 4px solid #00ff00;
+    cursor: pointer;
+}
+
+.propDisabled {
+    background-color: #ff0000; // placeholder so we can see it
+    border: 4px solid #ff0000;
+    opacity: 0.25;
+    cursor: pointer;
+}
+
 .scroller {
     width: 100%;
     overflow: scroll;

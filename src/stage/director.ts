@@ -47,6 +47,9 @@ export function scriptFromTemplate(
     });
 
     for (const head of template.heads) {
+        if (head.disabled) {
+            continue;
+        }
         const id = head.id;
 
         if (id === 'pengwyn-gagged') {
@@ -96,6 +99,9 @@ export function scriptFromTemplate(
     }
     
     for (const other of template.others) {
+        if (other.disabled) {
+            continue;
+        }
         const id = other.id;
         
         const normX = (other.origin.x / canvasW); // XXX
