@@ -136,6 +136,13 @@ body {
     padding: 0.15rem 0.4rem;
     font-family: monospace;
     font-size: 0.75rem;
+
+    &.disabled {
+        background: #551616;
+    }
+    &.enabled {
+        background: #2d552d;
+    }
 }
 
 select {
