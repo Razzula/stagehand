@@ -182,13 +182,15 @@ function App() {
     function addSpan(speaker: string) {
         const start = prompt('Span start (seconds)');
         const end = prompt('Span end (seconds)');
-
-        if (start === null || end === null) return;
+        if (start === null || end === null) {
+            return;
+        }
 
         const a = Number(start);
         const b = Number(end);
-
-        if (Number.isNaN(a) || Number.isNaN(b) || b <= a) return;
+        if (Number.isNaN(a) || Number.isNaN(b) || b <= a) {
+            return;
+        }
 
         setMutDiarisation(prev => {
             const next = { ...prev };
@@ -269,7 +271,6 @@ function App() {
             t = playSpan(ctx, buffer, start, end, t);
         });
     }
-
 
     return (
         <div className={`${videoName ? 'quarterise' : 'section'} main`}>
