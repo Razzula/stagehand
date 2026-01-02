@@ -19,12 +19,14 @@ function App() {
 
     const [videoData, setVideoData] = useState<CustomVideoAsset | null>(null);
     const [audioData, setAudioData] = useState<Float32Array | null>(null);
-    const [diarisation, setDiarisation] = useState<Record<string, number[][]>>({});
-    const [audioSplit, setAudioSplit] = useState<Record<string, number[][]>>({});
+    const [imutDiarisation, setImutDiarisation] = useState<Record<string, number[][]>>({});
+    const [mutDiarisation, setMutDiarisation] = useState<Record<string, number[][]>>({});
+    const [audioSplit, setAudioSplit] = useState<Record<string, number[][] | undefined>>({});
 
     const [speakerMap, setSpeakerMap] = useState<Record<string, string>>({
-        'kiwi': 'SPEAKER_00',
-        'pengwyn': 'SPEAKER_01',
+        'kiwi': 'null',
+        'pengwyn': 'null',
+        'none': 'null',
     });
 
     const [scene, setScene] = useState<Scene | null>(null);
@@ -35,8 +37,10 @@ function App() {
     const isDiarisingRef = useRef(false);
     const lastDiarisationRef = useRef<string | null>(null);
 
+    const audioCtxRef = useRef<AudioContext | null>(null);
+
     useEffect(() => {
-        setTemplate({...trueTemplate});
+        setTemplate({ ...trueTemplate });
     }, [trueTemplate]);
 
     useEffect(() => {
@@ -59,11 +63,14 @@ function App() {
 
     useMemo(() => {
         extractAudio();
-        setDiarisation({});
+        setImutDiarisation({});
+        setMutDiarisation({});
         setRendered(false);
         setSpeakerMap({
-            'kiwi': 'SPEAKER_00',
-            'pengwyn': 'SPEAKER_01',
+            // empty values for default
+            'kiwi': 'null',
+            'pengwyn': 'null',
+            'none': 'null',
         });
     }, [videoData]);
 
@@ -74,11 +81,12 @@ function App() {
     }, [audioData]);
 
     useMemo(() => {
+        const filterEnabled = (spans?: number[][]) => spans?.filter(([a]) => a >= 0);
         setAudioSplit({
-            'kiwi': diarisation?.[speakerMap?.['kiwi']],
-            'pengwyn': diarisation?.[speakerMap?.['pengwyn']]
+            'kiwi': filterEnabled(mutDiarisation?.[speakerMap?.['kiwi']]),
+            'pengwyn': filterEnabled(mutDiarisation?.[speakerMap?.['pengwyn']]),
         });
-    }, [diarisation, speakerMap]);
+    }, [mutDiarisation, speakerMap]);
 
     useMemo(() => {
         if (template && videoData) {
@@ -89,6 +97,11 @@ function App() {
             }
         }
     }, [template, videoData, audioData, audioSplit]);
+
+    useMemo(() => {
+        // convert immutable diarisation to mutable
+        setMutDiarisation({ ...imutDiarisation });
+    }, [imutDiarisation]);
 
     async function generatePreviewFrame() {
         if (videoData) {
@@ -121,7 +134,7 @@ function App() {
             const diarisation = await invoke('diariseAudio') as string;
             if (diarisation !== lastDiarisationRef.current) {
                 lastDiarisationRef.current = diarisation;
-                setDiarisation(JSON.parse(diarisation));
+                setImutDiarisation(JSON.parse(diarisation));
             }
         }
         catch (e) {
@@ -151,8 +164,57 @@ function App() {
         }
     }
 
+    function addSpeaker() {
+        const count = Object.keys(mutDiarisation).length
+        const name = `SPEAKER_${count <= 9 ? '0' : ''}${count}`;
+        if (!name) {
+            return;
+        }
+
+        setMutDiarisation(prev => {
+            if (prev[name]) {
+                return prev;
+            }
+            return { ...prev, [name]: [] };
+        });
+    }
+
+    function addSpan(speaker: string) {
+        const start = prompt('Span start (seconds)');
+        const end = prompt('Span end (seconds)');
+
+        if (start === null || end === null) return;
+
+        const a = Number(start);
+        const b = Number(end);
+
+        if (Number.isNaN(a) || Number.isNaN(b) || b <= a) return;
+
+        setMutDiarisation(prev => {
+            const next = { ...prev };
+            next[speaker] = [...(next[speaker] ?? []), [a, b]];
+            return next;
+        });
+    }
+
+    function toggleSpan(speaker: string, index: number) {
+        setMutDiarisation(prev => {
+            const next = { ...prev };
+            const spans = [...next[speaker]];
+
+            const span = spans[index];
+            // convention: disabled span = negative times
+            spans[index] = span[0] >= 0
+                ? [-span[0], -span[1]]
+                : [-span[0], -span[1]];
+
+            next[speaker] = spans;
+            return next;
+        });
+    }
+
     function toggleProp(propID: string) {
-        const newTemplate = {...template};
+        const newTemplate = { ...template };
         [...newTemplate.heads, ...newTemplate.others].forEach(prop => {
             if (prop.id === propID) {
                 if (prop.disabled === undefined) {
@@ -165,6 +227,49 @@ function App() {
         });
         setTemplate(newTemplate);
     }
+
+    function playSpan(
+        ctx: AudioContext,
+        buffer: AudioBuffer,
+        start: number,
+        end: number,
+        atTime: number
+    ): number {
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+
+        const duration = end - start;
+        source.start(atTime, start, duration);
+
+        return atTime + duration;
+    }
+
+    function playSpans(spans?: number[][]) {
+        if (!audioData || !spans?.length) return;
+
+        if (!audioCtxRef.current) {
+            audioCtxRef.current = new AudioContext();
+        }
+
+        const ctx = audioCtxRef.current;
+
+        const buffer = ctx.createBuffer(
+            1,
+            audioData.length,
+            videoData!.audioSampleRate
+        );
+
+        buffer.copyToChannel(Float32Array.from(audioData as any), 0);
+
+        let t = ctx.currentTime;
+
+        spans.forEach(([start, end]) => {
+            if (start < 0 || end < 0) return;
+            t = playSpan(ctx, buffer, start, end, t);
+        });
+    }
+
 
     return (
         <div className={`${videoName ? 'quarterise' : 'section'} main`}>
@@ -254,17 +359,24 @@ function App() {
                             ) : (
                                 <div className='audioList'>
                                     <ul>
-                                        {Object.entries(diarisation).map(([key, value]) => (
+                                        {Object.entries(mutDiarisation).map(([key, value]) => (
                                             <li className='audioItem' key={key}>
                                                 <span className='speakerLabel'>{key}</span>
                                                 <div className='audioControls'>
-                                                    <div className='audioValues'>
-                                                        {value.map((v, i) => (
-                                                            <span key={i} className='audioChip'>[{v[0]}–{v[1]}]</span>
-                                                        ))}
-                                                    </div>
+                                                    {value.map((v, i) => {
+                                                        const disabled = v[0] < 0 || v[1] < 0;
+                                                        return (
+                                                            <span
+                                                                key={i}
+                                                                className={`audioChip ${disabled ? 'disabled' : 'enabled'}`}
+                                                                onClick={() => toggleSpan(key, i)}
+                                                            >
+                                                                [{Math.abs(v[0])}–{Math.abs(v[1])}]
+                                                            </span>
+                                                        );
+                                                    })}
                                                     <select
-                                                        value={Object.entries(speakerMap).find(([_, speaker]) => speaker === key)?.[0] ?? ''}
+                                                        value={Object.entries(speakerMap).find(([_, speaker]) => speaker === key)?.[0] ?? 'none'}
                                                         onChange={(e) => {
                                                             const chosenCharacter = e.target.value;
                                                             setSpeakerMap(prev => ({ ...prev, [chosenCharacter]: key }));
@@ -277,9 +389,18 @@ function App() {
                                                         ))}
                                                     </select>
                                                 </div>
+                                                <button onClick={() => addSpan(key)}>
+                                                    Add Span
+                                                </button>
+                                                <button onClick={() => playSpans(mutDiarisation[key])}>
+                                                    ▶ Play
+                                                </button>
                                             </li>
                                         ))}
                                     </ul>
+                                    <button onClick={addSpeaker}>
+                                        Add Speaker
+                                    </button>
                                 </div>
                             )}
                         </div>

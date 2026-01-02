@@ -9,7 +9,7 @@ export function scriptFromTemplate(
     template: Template,
     customAssets: CustomVideoAsset[],
     frame: number, _frameTimeSec: number,
-    audioSplit?: Record<string, number[][]>,
+    audioSplit?: Record<string, number[][] | undefined>,
     audioVolume?: Record<string, number>,
     prngs?: Record<string, Blinker>,
     frameW?: number, frameH?: number,
@@ -237,7 +237,7 @@ export async function sceneFromTemplate(
     template: Template,
     customAssets: CustomVideoAsset[],
     audioData: Float32Array | null,
-    audioSplit: Record<string, number[][]>,
+    audioSplit: Record<string, number[][] | undefined>,
 ): Promise<Scene> {
 
     const props: Record<string, Prop> = {};
@@ -431,7 +431,7 @@ function computeRMSPerFrame(samples: Float32Array | null, sampleRate: number, fp
     return volumes;
 }
 
-function isWithinBounds(audioSplit: number[][], frame: number, fps: number): boolean {
+function isWithinBounds(audioSplit: number[][] | undefined, frame: number, fps: number): boolean {
     if (audioSplit === undefined) {
         return false;
     }
