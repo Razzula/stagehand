@@ -154,6 +154,18 @@ export const testplate: Template = {
             compositeType: 'overlay',
         },
         {
+            id: 'razz-held',
+            sprites: [
+                '/assets/razzmug.png',
+            ],
+            origin: {
+                x: 369,
+                y: 625,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
             id: 'kiwi-held',
             sprites: [
                 '/assets/treaty.png',
