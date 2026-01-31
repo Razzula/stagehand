@@ -34,13 +34,33 @@ function App() {
     const [frames, setFrames] = useState<string[]>([]);
     const [rendered, setRendered] = useState<boolean | undefined>(false);
 
+    const [tick, setTick] = useState<number>(0);
+
     const isDiarisingRef = useRef(false);
     const lastDiarisationRef = useRef<string | null>(null);
 
     const audioCtxRef = useRef<AudioContext | null>(null);
 
     useEffect(() => {
-        setTemplate({ ...trueTemplate });
+        async function tick() {
+            setTick(prev => prev + 1);
+            const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+            await delay(500);
+            tick();
+        }
+        tick();
+    }, []);
+
+    useEffect(() => {
+        const newTemplate = { ...trueTemplate };
+        const classes: Record<string, true> = {};
+        [...newTemplate.heads, ...newTemplate.others].forEach(prop => {
+            if (prop.class && !classes[prop.class]) {
+                enforcePropMutex(prop.id, prop.class, newTemplate);
+                classes[prop.class] = true;
+            }
+        });
+        setTemplate(newTemplate);
     }, [trueTemplate]);
 
     useEffect(() => {
@@ -219,15 +239,29 @@ function App() {
         const newTemplate = { ...template };
         [...newTemplate.heads, ...newTemplate.others].forEach(prop => {
             if (prop.id === propID) {
+                // toggle Prop
                 if (prop.disabled === undefined) {
                     prop.disabled = true;
                 }
                 else {
                     prop.disabled = !prop.disabled;
                 }
+
+                // handle mutex
+                if (prop.class) {
+                    enforcePropMutex(propID, prop.class, newTemplate);
+                }
             }
         });
         setTemplate(newTemplate);
+    }
+
+    function enforcePropMutex(propID: string, propClass: string, newTemplate: Template) {
+        [...newTemplate.heads, ...newTemplate.others].forEach(p => {
+            if (p.id !== propID && p.class === propClass) {
+                p.disabled = true;
+            }
+        });
     }
 
     function playSpan(
@@ -311,8 +345,12 @@ function App() {
                             {
                                 [...template.heads, ...template.others].map(prop => (
                                     <img className={`pane ${prop.disabled ? 'propDisabled' : 'propEnabled'}`}
-                                        src={new URL(prop.sprites?.[0], import.meta.url).href}
+                                        src={new URL(prop.sprites?.[tick % prop.sprites?.length], import.meta.url).href}
                                         onClick={() => toggleProp(prop.id)}
+                                        style={{
+                                            maxWidth: 200,
+                                            aspectRatio: 1,
+                                        }}
                                     />
                                 ))
                             }

@@ -17,9 +17,24 @@ export const testplate: Template = {
     heads: [
         {
             id: 'pengwyn-eyes',
+            class: 'pengwyn-eyes',
             sprites: [
                 '/assets/pengwyneyes.png',
                 '/assets/pengwyneyes_blink.png',
+            ],
+            origin: {
+                x: 294,
+                y: 443,
+            },
+            propType: 'image',
+            compositeType: 'paste',
+        },
+        {
+            id: 'pengwyn-eyes-cry',
+            class: 'pengwyn-eyes',
+            sprites: [
+                '/assets/pengwyneyes_cry.png',
+                '/assets/pengwyneyes_cry_blink.png',
             ],
             origin: {
                 x: 294,
@@ -60,6 +75,45 @@ export const testplate: Template = {
                         value: 100,
                     }
                 ],
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'pengwyn-hoodie',
+            class: 'pengwyn-hoodie',
+            sprites: [
+                '/assets/hoodie.png',
+            ],
+            origin: {
+                x: 236,
+                y: 501,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'pengwyn-hoodie-cern',
+            class: 'pengwyn-hoodie',
+            sprites: [
+                '/assets/hoodie_cern.png',
+            ],
+            origin: {
+                x: 236,
+                y: 501,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'pengwyn-hoodie-grogu',
+            class: 'pengwyn-hoodie',
+            sprites: [
+                '/assets/hoodie_grogu.png',
+            ],
+            origin: {
+                x: 236,
+                y: 501,
             },
             propType: 'image',
             compositeType: 'overlay',
@@ -154,7 +208,8 @@ export const testplate: Template = {
             compositeType: 'overlay',
         },
         {
-            id: 'razz-held',
+            id: 'razz-tea',
+            class: 'razz-held-right',
             sprites: [
                 '/assets/razzmug.png',
             ],
@@ -166,13 +221,66 @@ export const testplate: Template = {
             compositeType: 'overlay',
         },
         {
-            id: 'kiwi-held',
+            id: 'razz-bible',
+            class: 'razz-held-right',
             sprites: [
-                '/assets/treaty.png',
+                '/assets/razzBible.png',
+            ],
+            origin: {
+                x: 359,
+                y: 587,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-treaty',
+            class: 'kiwi-held-right',
+            sprites: [
+                '/assets/kiwiTreaty.png',
             ],
             origin: {
                 x: 1176,
                 y: 442,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-newspaper',
+            class: 'kiwi-held-right',
+            sprites: [
+                '/assets/kiwiNewspaper.png',
+            ],
+            origin: {
+                x: 1225,
+                y: 469,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-scroll',
+            class: 'kiwi-held-right',
+            sprites: [
+                '/assets/kiwiScroll.png',
+            ],
+            origin: {
+                x: 1190,
+                y: 457,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-bible',
+            class: 'kiwi-held-right',
+            sprites: [
+                '/assets/kiwiBible.png',
+            ],
+            origin: {
+                x: 1236,
+                y: 449,
             },
             propType: 'image',
             compositeType: 'overlay',
