@@ -8,7 +8,7 @@ export const testplate: Template = {
         height: 1080,
     },
     background: {
-        image: '/assets/testplate.png',
+        image: '/assets/plates/testplate.png',
         width: 1920,
         height: 1080,
         propType: 'image',
@@ -19,8 +19,8 @@ export const testplate: Template = {
             id: 'pengwyn-eyes',
             class: 'pengwyn-eyes',
             sprites: [
-                '/assets/pengwyneyes.png',
-                '/assets/pengwyneyes_blink.png',
+                '/assets/sprites/pengwyn/pengwyneyes.png',
+                '/assets/sprites/pengwyn/pengwyneyes_blink.png',
             ],
             origin: {
                 x: 294,
@@ -33,8 +33,8 @@ export const testplate: Template = {
             id: 'pengwyn-eyes-cry',
             class: 'pengwyn-eyes',
             sprites: [
-                '/assets/pengwyneyes_cry.png',
-                '/assets/pengwyneyes_cry_blink.png',
+                '/assets/sprites/pengwyn/pengwyneyes_cry.png',
+                '/assets/sprites/pengwyn/pengwyneyes_cry_blink.png',
             ],
             origin: {
                 x: 294,
@@ -46,7 +46,7 @@ export const testplate: Template = {
         {
             id: 'pengwyn-gagged',
             sprites: [
-                '/assets/pengwyn_gag.png',
+                '/assets/sprites/pengwyn/pengwyn_gag.png',
             ],
             origin: {
                 x: 247,
@@ -58,7 +58,7 @@ export const testplate: Template = {
         {
             id: 'pengwyn',
             sprites: [
-                '/assets/pengwynbeak.png',
+                '/assets/sprites/pengwyn/pengwynbeak.png',
             ],
             origin: {
                 x: 307,
@@ -83,7 +83,7 @@ export const testplate: Template = {
             id: 'pengwyn-hoodie',
             class: 'pengwyn-hoodie',
             sprites: [
-                '/assets/hoodie.png',
+                '/assets/sprites/pengwyn/hoodie.png',
             ],
             origin: {
                 x: 236,
@@ -96,7 +96,7 @@ export const testplate: Template = {
             id: 'pengwyn-hoodie-cern',
             class: 'pengwyn-hoodie',
             sprites: [
-                '/assets/hoodie_cern.png',
+                '/assets/sprites/pengwyn/hoodie_cern.png',
             ],
             origin: {
                 x: 236,
@@ -109,7 +109,7 @@ export const testplate: Template = {
             id: 'pengwyn-hoodie-grogu',
             class: 'pengwyn-hoodie',
             sprites: [
-                '/assets/hoodie_grogu.png',
+                '/assets/sprites/pengwyn/hoodie_grogu.png',
             ],
             origin: {
                 x: 236,
@@ -121,8 +121,8 @@ export const testplate: Template = {
         {
             id: 'kiwi-eyes',
             sprites: [
-                '/assets/kiwieyes.png',
-                '/assets/kiwieyes_blink.png',
+                '/assets/sprites/kiwi/kiwieyes.png',
+                '/assets/sprites/kiwi/kiwieyes_blink.png',
             ],
             origin: {
                 x: 1518,
@@ -134,7 +134,7 @@ export const testplate: Template = {
         {
             id: 'kiwi',
             sprites: [
-                '/assets/kiwibeak.png',
+                '/assets/sprites/kiwi/kiwibeak.png',
             ],
             origin: {
                 x: 1379,
@@ -172,8 +172,8 @@ export const testplate: Template = {
         {
             id: 'clock',
             sprites: [
-                '/assets/clock/clock_blank.png',
-                '/assets/clock/clock_blink.png',
+                '/assets/sprites/clock/clock_blank.png',
+                '/assets/sprites/clock/clock_blink.png',
             ],
             origin: {
                 x: 718,
@@ -185,7 +185,7 @@ export const testplate: Template = {
         {
             id: 'calander',
             sprites: [
-                '/assets/calander/calander.png',
+                '/assets/sprites/calander/calander.png',
             ],
             origin: {
                 x: 996,
@@ -197,8 +197,8 @@ export const testplate: Template = {
         {
             id: 'telly',
             sprites: [
-                '/assets/telly.png',
-                '/assets/telly_blink.png',
+                '/assets/sprites/telly.png',
+                '/assets/sprites/telly_blink.png',
             ],
             origin: {
                 x: 651,
@@ -211,7 +211,7 @@ export const testplate: Template = {
             id: 'razz-tea',
             class: 'razz-held-right',
             sprites: [
-                '/assets/razzmug.png',
+                '/assets/sprites/pengwyn/razzmug.png',
             ],
             origin: {
                 x: 369,
@@ -224,7 +224,7 @@ export const testplate: Template = {
             id: 'razz-bible',
             class: 'razz-held-right',
             sprites: [
-                '/assets/razzBible.png',
+                '/assets/sprites/pengwyn/razzBible.png',
             ],
             origin: {
                 x: 359,
@@ -237,7 +237,7 @@ export const testplate: Template = {
             id: 'kiwi-treaty',
             class: 'kiwi-held-right',
             sprites: [
-                '/assets/kiwiTreaty.png',
+                '/assets/sprites/kiwi/kiwiTreaty.png',
             ],
             origin: {
                 x: 1176,
@@ -250,7 +250,7 @@ export const testplate: Template = {
             id: 'kiwi-newspaper',
             class: 'kiwi-held-right',
             sprites: [
-                '/assets/kiwiNewspaper.png',
+                '/assets/sprites/kiwi/kiwiNewspaper.png',
             ],
             origin: {
                 x: 1225,
@@ -263,7 +263,7 @@ export const testplate: Template = {
             id: 'kiwi-scroll',
             class: 'kiwi-held-right',
             sprites: [
-                '/assets/kiwiScroll.png',
+                '/assets/sprites/kiwi/kiwiScroll.png',
             ],
             origin: {
                 x: 1190,
@@ -276,7 +276,7 @@ export const testplate: Template = {
             id: 'kiwi-bible',
             class: 'kiwi-held-right',
             sprites: [
-                '/assets/kiwiBible.png',
+                '/assets/sprites/kiwi/kiwiBible.png',
             ],
             origin: {
                 x: 1236,
@@ -290,16 +290,16 @@ export const testplate: Template = {
         {
             id: 'clock-digit',
             sprites: [
-                '/assets/clock/clock_digit0.png',
-                '/assets/clock/clock_digit1.png',
-                '/assets/clock/clock_digit2.png',
-                '/assets/clock/clock_digit3.png',
-                '/assets/clock/clock_digit4.png',
-                '/assets/clock/clock_digit5.png',
-                '/assets/clock/clock_digit6.png',
-                '/assets/clock/clock_digit7.png',
-                '/assets/clock/clock_digit8.png',
-                '/assets/clock/clock_digit9.png',
+                '/assets/sprites/clock/clock_digit0.png',
+                '/assets/sprites/clock/clock_digit1.png',
+                '/assets/sprites/clock/clock_digit2.png',
+                '/assets/sprites/clock/clock_digit3.png',
+                '/assets/sprites/clock/clock_digit4.png',
+                '/assets/sprites/clock/clock_digit5.png',
+                '/assets/sprites/clock/clock_digit6.png',
+                '/assets/sprites/clock/clock_digit7.png',
+                '/assets/sprites/clock/clock_digit8.png',
+                '/assets/sprites/clock/clock_digit9.png',
             ],
             width: 33,
             origin: {
@@ -313,16 +313,16 @@ export const testplate: Template = {
         {
             id: 'calander-day',
             sprites: [
-                '/assets/calander/calander_digit0.png',
-                '/assets/calander/calander_digit1.png',
-                '/assets/calander/calander_digit2.png',
-                '/assets/calander/calander_digit3.png',
-                '/assets/calander/calander_digit4.png',
-                '/assets/calander/calander_digit5.png',
-                '/assets/calander/calander_digit6.png',
-                '/assets/calander/calander_digit7.png',
-                '/assets/calander/calander_digit8.png',
-                '/assets/calander/calander_digit9.png',
+                '/assets/sprites/calander/calander_digit0.png',
+                '/assets/sprites/calander/calander_digit1.png',
+                '/assets/sprites/calander/calander_digit2.png',
+                '/assets/sprites/calander/calander_digit3.png',
+                '/assets/sprites/calander/calander_digit4.png',
+                '/assets/sprites/calander/calander_digit5.png',
+                '/assets/sprites/calander/calander_digit6.png',
+                '/assets/sprites/calander/calander_digit7.png',
+                '/assets/sprites/calander/calander_digit8.png',
+                '/assets/sprites/calander/calander_digit9.png',
             ],
             width: 27,
             origin: {
@@ -336,18 +336,18 @@ export const testplate: Template = {
         {
             id: 'calander-month',
             sprites: [
-                '/assets/calander/calander_month1.png',
-                '/assets/calander/calander_month2.png',
-                '/assets/calander/calander_month3.png',
-                '/assets/calander/calander_month4.png',
-                '/assets/calander/calander_month5.png',
-                '/assets/calander/calander_month6.png',
-                '/assets/calander/calander_month7.png',
-                '/assets/calander/calander_month8.png',
-                '/assets/calander/calander_month9.png',
-                '/assets/calander/calander_month10.png',
-                '/assets/calander/calander_month11.png',
-                '/assets/calander/calander_month12.png',
+                '/assets/sprites/calander/calander_month1.png',
+                '/assets/sprites/calander/calander_month2.png',
+                '/assets/sprites/calander/calander_month3.png',
+                '/assets/sprites/calander/calander_month4.png',
+                '/assets/sprites/calander/calander_month5.png',
+                '/assets/sprites/calander/calander_month6.png',
+                '/assets/sprites/calander/calander_month7.png',
+                '/assets/sprites/calander/calander_month8.png',
+                '/assets/sprites/calander/calander_month9.png',
+                '/assets/sprites/calander/calander_month10.png',
+                '/assets/sprites/calander/calander_month11.png',
+                '/assets/sprites/calander/calander_month12.png',
             ],
             origin: {
                 // relative to calander
@@ -360,16 +360,16 @@ export const testplate: Template = {
         {
             id: 'calander-year',
             sprites: [
-                '/assets/calander/calander_digit0.png',
-                '/assets/calander/calander_digit1.png',
-                '/assets/calander/calander_digit2.png',
-                '/assets/calander/calander_digit3.png',
-                '/assets/calander/calander_digit4.png',
-                '/assets/calander/calander_digit5.png',
-                '/assets/calander/calander_digit6.png',
-                '/assets/calander/calander_digit7.png',
-                '/assets/calander/calander_digit8.png',
-                '/assets/calander/calander_digit9.png',
+                '/assets/sprites/calander/calander_digit0.png',
+                '/assets/sprites/calander/calander_digit1.png',
+                '/assets/sprites/calander/calander_digit2.png',
+                '/assets/sprites/calander/calander_digit3.png',
+                '/assets/sprites/calander/calander_digit4.png',
+                '/assets/sprites/calander/calander_digit5.png',
+                '/assets/sprites/calander/calander_digit6.png',
+                '/assets/sprites/calander/calander_digit7.png',
+                '/assets/sprites/calander/calander_digit8.png',
+                '/assets/sprites/calander/calander_digit9.png',
             ],
             width: 27,
             origin: {
