@@ -7,20 +7,14 @@ export interface Template {
         height: number;
         width: number;
     };
-    background: {
-        propType: PropType;
-        compositeType: CompositeType;
-        image: string;
-        width?: number;
-        height?: number;
-    };
-    heads: FixedAsset[];
-    others: FixedAsset[];
-    video: CustomAsset;
-    extra: FixedAsset[];
+    background: Asset;
+    heads: Asset[];
+    others: Asset[];
+    video?: Asset;
+    extra: Asset[];
 }
 
-export interface FixedAsset {
+export interface AssetBase {
     id: string;
     propType: PropType;
     compositeType: CompositeType;
@@ -28,30 +22,40 @@ export interface FixedAsset {
     class?: string;
     disabled?: boolean;
 
+    width?: number;
+    height?: number;
+    origin: {
+        x: number;
+        y: number;
+    };
+    paths?: Record<string, (i: number, d?: Date) => unknown>;
+}
+
+export interface FixedAsset extends AssetBase {
+    propType: 'image';
     sprites: string[];
-
-    width?: number;
-    height?: number;
-    origin: {
-        x: number;
-        y: number;
-    };
-    paths?: Record<string, Path[]>;
 }
 
-export interface CustomAsset {
-    id: string;
-    propType: PropType;
-    compositeType: CompositeType;
 
-    width?: number;
-    height?: number;
-    origin: {
-        x: number;
-        y: number;
-    };
-    paths?: Record<string, Path[]>;
+export interface VideoAsset extends AssetBase {
+    propType: 'video';
 }
+
+export interface DynamicAsset extends AssetBase {
+    propType: 'colour';
+}
+
+export interface PrecomposedAsset extends AssetBase {
+    propType: 'precomposed';
+    template: Template;
+}
+
+export type Asset = (
+    | FixedAsset
+    | VideoAsset
+    | PrecomposedAsset
+    | DynamicAsset
+);
 
 export interface Path {
     keyframe: number;

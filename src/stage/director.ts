@@ -38,13 +38,25 @@ export function scriptFromTemplate(
 
     const props: StageDirection[] = [];
 
-    props.push({
-        prop: 'background',
-        x: origin.x,
-        y: origin.y,
-        width: template.background.width,
-        height: template.background.height,
-    });
+    if (template.background) {
+        const prop: StageDirection = {
+            prop: template.background.id,
+            x: origin.x,
+            y: origin.y,
+            width: template.background.width,
+            height: template.background.height,
+        };
+        if (template.background.propType === 'colour') {
+            if (template.background.paths?.colour) {
+                const secondsOfDay = datetime
+                    ? datetime.getHours() * 3600 + datetime.getMinutes() * 60 + datetime.getSeconds()
+                    : 0;
+                const i = ['skybox'].includes(template.background.id) ? (secondsOfDay / 86400) : frame;
+                prop.colour = template.background.paths.colour(i, datetime) as [number, number, number];
+            }
+        }
+        props.push(prop);
+    }
 
     for (const head of template.heads) {
         if (head.disabled) {
@@ -64,8 +76,22 @@ export function scriptFromTemplate(
         const px = origin.x + Math.round(normX * canvasW);
         const py = origin.y + Math.round(normY * canvasH);
 
+        let ox = 0;
+        let oy = 0;
+
         // bob head according to audio volume
-        const bob = Math.round((audioVolume?.[id] ?? 0) * -40);
+        oy += Math.round((audioVolume?.[id] ?? 0) * -40);
+
+        if (head.paths?.offset) {
+            const secondsOfDay = datetime
+                ? datetime.getHours() * 3600 + datetime.getMinutes() * 60 + datetime.getSeconds()
+                : 0;
+            const i = ['sun', 'moon'].includes(head.id) ? (secondsOfDay / 86400) : frame;
+
+            const offset = head.paths.offset(i, datetime) as Record<string, number>;
+            ox += offset.x;
+            oy += offset.y;
+        }
 
         // blinking
         const blinker = prngs?.[id];
@@ -73,42 +99,44 @@ export function scriptFromTemplate(
         props.push({
             prop: id,
             sprite: blinker?.isBlink(frame) ? 1 : 0,//XXX
-            x: px,
-            y: py + bob,
+            x: Math.round(px + ox),
+            y: Math.round(py + oy),
             width: head.width,
             height: head.height,
         });
     }
 
     for (const customAsset of customAssets) {
-        const id = customAsset.id;
+        if (template.video) {
+            const id = customAsset.id;
 
-        const normX = (template.video.origin.x / canvasW); // XXX
-        const normY = (template.video.origin.y / canvasH); // XXX
-        const px = origin.x + Math.round(normX * canvasW);
-        const py = origin.y + Math.round(normY * canvasH);
+            const normX = (template.video.origin.x / canvasW); // XXX
+            const normY = (template.video.origin.y / canvasH); // XXX
+            const px = origin.x + Math.round(normX * canvasW);
+            const py = origin.y + Math.round(normY * canvasH);
 
-        props.push({
-            prop: id,
-            sprite: frame,
-            x: px,
-            y: py,
-            width: template.video.width,
-            height: template.video.height,
-        });
+            props.push({
+                prop: id,
+                sprite: frame,
+                x: px,
+                y: py,
+                width: template.video.width,
+                height: template.video.height,
+            });
+        }
     }
-    
+
     for (const other of template.others) {
         if (other.disabled) {
             continue;
         }
         const id = other.id;
-        
+
         const normX = (other.origin.x / canvasW); // XXX
         const normY = (other.origin.y / canvasH); // XXX
         const px = origin.x + Math.round(normX * canvasW);
         const py = origin.y + Math.round(normY * canvasH);
-        
+
         const blinker = prngs?.[id];
 
         props.push({
@@ -129,19 +157,19 @@ export function scriptFromTemplate(
                     const hours = currentDatetime.getUTCHours().toString().padStart(2, '0');
                     const mins = currentDatetime.getUTCMinutes().toString().padStart(2, '0');
                     const digits = [...hours, ...mins,]
-    
+
                     const normX = (digitTemplate.origin.x / canvasW); // XXX
                     const normY = (digitTemplate.origin.y / canvasH); // XXX
                     const dpx = px + Math.round(normX * canvasW);
                     const dpy = py + Math.round(normY * canvasH);
 
                     const w = digitTemplate.width ?? 0;
-    
+
                     digits.forEach((digit, i) => {
                         props.push({
                             prop: digitTemplate.id,
                             sprite: Number(digit),
-                            x: Math.round(dpx + (i >=2 ? w : 0) + (w * i)), // XXX
+                            x: Math.round(dpx + (i >= 2 ? w : 0) + (w * i)), // XXX
                             y: dpy,
                             width: digitTemplate.width,
                             height: digitTemplate.height,
@@ -161,7 +189,7 @@ export function scriptFromTemplate(
                     const dpy = py + Math.round(normY * canvasH);
 
                     const w = dayTemplate.width ?? 0;
-    
+
                     digits.forEach((digit, i) => {
                         props.push({
                             prop: dayTemplate.id,
@@ -181,7 +209,7 @@ export function scriptFromTemplate(
                     const normY = (monthTemplate.origin.y / canvasH); // XXX
                     const dpx = px + Math.round(normX * canvasW);
                     const dpy = py + Math.round(normY * canvasH);
-    
+
                     props.push({
                         prop: monthTemplate.id,
                         sprite: digit,
@@ -194,14 +222,14 @@ export function scriptFromTemplate(
                 const yearTemplate = template.extra.find(e => e.id === 'calander-year');
                 if (yearTemplate) {
                     const digits = currentDatetime.getUTCFullYear().toString().split('');
-    
+
                     const normX = (yearTemplate.origin.x / canvasW); // XXX
                     const normY = (yearTemplate.origin.y / canvasH); // XXX
                     const dpx = px + Math.round(normX * canvasW);
                     const dpy = py + Math.round(normY * canvasH);
-    
+
                     const w = yearTemplate.width ?? 0;
-    
+
                     digits.forEach((digit, i) => {
                         props.push({
                             prop: yearTemplate.id,
@@ -225,6 +253,7 @@ export function scriptFromTemplate(
 
 export interface CustomVideoAsset {
     id: string;
+    propType: 'customVideo';
     src: string
     width: number;
     height: number;
@@ -238,9 +267,11 @@ export async function sceneFromTemplate(
     customAssets: CustomVideoAsset[],
     audioData: Float32Array | null,
     audioSplit: Record<string, number[][] | undefined>,
+    datetime?: Date,
 ): Promise<Scene> {
 
     const props: Record<string, Prop> = {};
+    const precompute: Scene[] = [];
     const frames: Script[] = [];
 
     const fps = template.meta.fps;
@@ -250,44 +281,66 @@ export async function sceneFromTemplate(
     // determine duration
     const durationSec = Math.max(...customAssets.map(a => a.durationSec ?? 0));
 
+    let currentDatetime = datetime ?? customAssets?.[0]?.datetime ?? undefined;
+
     // setup props
-    props['background'] = {
-        id: 'background',
-        sprites: [`${STAGEHAND_DIR}/stagehand/public/${template.background.image}`],
-        propType: template.background.propType,
-        compositeType: template.background.compositeType,
-    };
-    for (const head of template.heads) {
-        props[head.id] = {
-            id: head.id,
-            sprites: head.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
-            propType: head.propType,
-            compositeType: head.compositeType,
-        };
-    }
-    for (const customAsset of customAssets) {
-        props[customAsset.id] = {
-            id: customAsset.id,
-            sprites: [`${STAGEHAND_DIR}/stagehand/public/${customAsset.src}`],
-            propType: template.video.propType,
-            compositeType: template.video.compositeType,
+    for (const prop of [
+        template.background,
+        ...template.heads,
+        ...customAssets,
+        ...template.others,
+    ]) {
+        if (prop.propType === 'image') {
+            props[prop.id] = {
+                id: prop.id,
+                sprites: prop.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
+                propType: prop.propType,
+                compositeType: prop.compositeType,
+            };
+        }
+        else if (prop.propType === 'customVideo') {
+            if (template.video) {
+                props[prop.id] = {
+                    id: prop.id,
+                    sprites: [`${STAGEHAND_DIR}/stagehand/public/${prop.src}`],
+                    propType: template.video.propType,
+                    compositeType: template.video.compositeType,
 
-            width: template.video.width,
-            height: template.video.height,
-        };
-    }
-    for (const other of template.others) {
-        props[other.id] = {
-            id: other.id,
-            sprites: other.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
-            propType: other.propType,
-            compositeType: other.compositeType,
-        };
+                    width: template.video.width,
+                    height: template.video.height,
+                };
+            }
+        }
+        else if (prop.propType === 'precomposed') {
+            const template = await sceneFromTemplate(
+                prop.template,
+                [], null, {},
+                currentDatetime,
+            );
+            precompute.push(template);
+        }
+        else if (prop.propType === 'colour') {
+            if (prop.paths?.colour) {
+                const secondsOfDay = datetime
+                    ? datetime.getHours() * 3600 + datetime.getMinutes() * 60 + datetime.getSeconds()
+                    : 0;
+                const i = ['skybox'].includes(prop.id) ? (secondsOfDay / 86400) : 0;
+                const colour = prop.paths.colour(i, datetime) as [number, number, number];
 
-        if (other.id === 'clock') {
+                props[prop.id] = {
+                    id: prop.id,
+                    propType: prop.propType,
+                    compositeType: prop.compositeType,
+                    sprites: [],
+                    colour: [Math.round(colour[0]), Math.round(colour[1]), Math.round(colour[2])],
+                }
+            }
+        }
+
+        if (prop.id === 'clock') {
             // load clock digits if clock is in use
             const digitTemplate = template.extra.find(e => e.id === 'clock-digit');
-            if (digitTemplate) {
+            if (digitTemplate?.propType === 'image') {
                 props[digitTemplate.id] = {
                     id: digitTemplate.id,
                     sprites: digitTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
@@ -296,10 +349,10 @@ export async function sceneFromTemplate(
                 }
             }
         }
-        else if (other.id === 'calander') {
+        else if (prop.id === 'calander') {
             // load calander digits if clock is in use
             const dayTemplate = template.extra.find(e => e.id === 'calander-day');
-            if (dayTemplate) {
+            if (dayTemplate?.propType === 'image') {
                 props[dayTemplate.id] = {
                     id: dayTemplate.id,
                     sprites: dayTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
@@ -308,7 +361,7 @@ export async function sceneFromTemplate(
                 }
             }
             const monthTemplate = template.extra.find(e => e.id === 'calander-month');
-            if (monthTemplate) {
+            if (monthTemplate?.propType === 'image') {
                 props[monthTemplate.id] = {
                     id: monthTemplate.id,
                     sprites: monthTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
@@ -317,7 +370,7 @@ export async function sceneFromTemplate(
                 }
             }
             const yearTemplate = template.extra.find(e => e.id === 'calander-year');
-            if (yearTemplate) {
+            if (yearTemplate?.propType === 'image') {
                 props[yearTemplate.id] = {
                     id: yearTemplate.id,
                     sprites: yearTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
@@ -329,32 +382,36 @@ export async function sceneFromTemplate(
     }
 
     // handle audio
-    console.log('length of floatSamples:', audioData?.length ?? 0);
-    const volumesPerFrame = computeRMSPerFrame(audioData, customAssets[0].audioSampleRate, fps);
-    console.log('length of volumes:', volumesPerFrame.length);
-
-    // associate volumes to heads
     const filteredVolumesPerFrame = [];
-    for (let i = 0; i < volumesPerFrame.length; i++) {
-        filteredVolumesPerFrame.push({
-            'kiwi': isWithinBounds(audioSplit['kiwi'], i, fps) ? volumesPerFrame[i] : 0,
-            'pengwyn': isWithinBounds(audioSplit['pengwyn'], i, fps) ? (volumesPerFrame[i] * 1.2) : 0,
-        });
+    if (customAssets.length > 0) {
+        console.log('length of floatSamples:', audioData?.length ?? 0);
+        console.log(customAssets);
+        const volumesPerFrame = computeRMSPerFrame(audioData, customAssets[0].audioSampleRate, fps);
+        console.log('length of volumes:', volumesPerFrame.length);
+
+        // associate volumes to heads
+        for (let i = 0; i < volumesPerFrame.length; i++) {
+            filteredVolumesPerFrame.push({
+                'kiwi': isWithinBounds(audioSplit['kiwi'], i, fps) ? volumesPerFrame[i] : 0,
+                'pengwyn': isWithinBounds(audioSplit['pengwyn'], i, fps) ? (volumesPerFrame[i] * 1.2) : 0,
+            });
+        }
+        console.log('audioFrames:', volumesPerFrame.length);
     }
 
     // generate blinking patterns
     const prngs: Record<string, Blinker> = {};
     template.heads.forEach(head => {
-        if (head.sprites.length > 1) {
+        if (head.propType === 'image' && head.sprites.length > 1) {
             prngs[head.id] = new Blinker(
-                1.2*fps, 7*fps,
-                0.16*fps, 0.32*fps,
+                1.2 * fps, 7 * fps,
+                0.16 * fps, 0.32 * fps,
                 seedrandom(`${customAssets?.[0].src ?? 'null'}-${head.id}`)
             );
         }
     });
     template.others.forEach(other => {
-        if (other.sprites.length > 1) {
+        if (other.propType === 'image' && other.sprites.length > 1) {
             if (other.id === 'clock') {
                 prngs[other.id] = new Blinker(
                     fps, fps,
@@ -372,17 +429,14 @@ export async function sceneFromTemplate(
         }
     });
 
-    let datetime = customAssets?.[0]?.datetime ?? undefined;
-
     // calculate frames
-    const totalFrames = durationSec * fps;
+    const totalFrames = (durationSec !== -Infinity && fps !== 0) ? (durationSec * fps) : 1;
     console.log('totalFrames:', totalFrames);
-    console.log('audioFrames:', volumesPerFrame.length);
     for (let i = 0; i < totalFrames; i++) {
         const frameTimeSec = i / fps;
-        if (datetime && frameTimeSec % 1 === 0) {
+        if (currentDatetime && frameTimeSec % 1 === 0) {
             // a second has passed
-            datetime = new Date(datetime.getTime() + 1000);
+            currentDatetime = new Date(currentDatetime.getTime() + 1000);
         }
         const script = scriptFromTemplate(
             template, customAssets,
@@ -390,21 +444,22 @@ export async function sceneFromTemplate(
             audioSplit, filteredVolumesPerFrame[i] ?? undefined,
             prngs,
             frameW, frameH,
-            datetime,
+            currentDatetime,
         );
         frames.push(script);
     }
 
     console.log('scene completed');
     return {
-        id: customAssets?.[0].id ?? template.id,
+        id: customAssets.length > 0 ? customAssets[0].id : template.id,
         fps,
         canvasSize: {
             width: frameW ?? template.background.width,
             height: frameH ?? template.background.height,
         },
         props,
-        audio: customAssets?.[0].src,
+        audio: customAssets.length > 0 ? customAssets?.[0].src : 'null',
+        precompute,
         frames,
     };
 }
