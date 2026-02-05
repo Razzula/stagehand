@@ -1,4 +1,5 @@
 import { Template } from "../stage/Template";
+import { background } from "./background";
 
 export const testplate: Template = {
     id: 'testplate',
@@ -8,11 +9,13 @@ export const testplate: Template = {
         height: 1080,
     },
     background: {
-        image: '/assets/plates/testplate.png',
+        id: 'background',
+        propType: 'precomposed',
+        compositeType: 'paste',
+        template: background,
         width: 1920,
         height: 1080,
-        propType: 'image',
-        compositeType: 'paste',
+        origin: { x: 0, y: 0, },
     },
     heads: [
         {
@@ -63,18 +66,6 @@ export const testplate: Template = {
             origin: {
                 x: 307,
                 y: 470,
-            },
-            paths: {
-                'offset-y': [
-                    {
-                        keyframe: 0,
-                        value: 0,
-                    },
-                    {
-                        keyframe: 1,
-                        value: 100,
-                    }
-                ],
             },
             propType: 'image',
             compositeType: 'overlay',
@@ -139,18 +130,6 @@ export const testplate: Template = {
             origin: {
                 x: 1379,
                 y: 263,
-            },
-            paths: {
-                'offset-y': [
-                    {
-                        keyframe: 0,
-                        value: 0,
-                    },
-                    {
-                        keyframe: 1,
-                        value: 100,
-                    }
-                ],
             },
             propType: 'image',
             compositeType: 'overlay',

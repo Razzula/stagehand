@@ -1,4 +1,4 @@
-export type PropType = 'image' | 'video';
+export type PropType = 'image' | 'video' | 'precomposed' | 'colour';
 export type CompositeType = 'overlay' | 'paste';
 
 export interface Scene {
@@ -10,9 +10,10 @@ export interface Scene {
         height: number;
     };
     props: Record<string, Prop>;
-    audio: string,
-
-    frames: Script[],
+    audio: string;
+    
+    precompute: Scene[];
+    frames: Script[];
 }
 
 export interface Script {
@@ -28,6 +29,8 @@ export interface Prop {
 
     width?: number;
     height?: number;
+
+    colour?: [number, number, number];
 }
 
 export interface StageDirection {
@@ -40,4 +43,5 @@ export interface StageDirection {
     y: number;          // px top-left
     width?: number;     // px
     height?: number;    // px
+    colour?: [number, number, number];
 }

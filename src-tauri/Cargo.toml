@@ -27,4 +27,3 @@ once_cell = "1.21.3"
 base64 = "0.22.1"
 dotenvy = "0.15.7"
 hound = "3.5.1"
-

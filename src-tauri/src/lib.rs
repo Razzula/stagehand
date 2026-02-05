@@ -12,55 +12,58 @@ use std::time::Instant;
 
 use base64::Engine;
 use dotenvy::dotenv;
-use hound::{WavWriter, WavSpec, SampleFormat};
-use image::{RgbaImage, ImageFormat};
+use hound::{SampleFormat, WavSpec, WavWriter};
+use image::{ImageFormat, RgbaImage};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone)]
 struct Scene {
     id: String,
     fps: u32,
     canvasSize: CanvasSize,
     props: HashMap<String, Prop>,
     audio: Option<String>,
+    precompute: Vec<Scene>,
     frames: Vec<Script>,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Serialize, Clone)]
 struct CanvasSize {
     width: u32,
     height: u32,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone)]
 struct Prop {
     id: String,
     sprites: Vec<String>,
-    propType: String, // "image" | "video"
+    propType: String,      // "image" | "video"
     compositeType: String, // "copy" | "paste"
 
     width: Option<u32>,
     height: Option<u32>,
+    colour: Option<[u8; 3]>,
 }
 
+#[derive(Debug)]
 struct LoadedProp {
     id: String,
     sprites: Vec<RgbaImage>,
-    propType: String, // "image" | "video"
+    propType: String,      // "image" | "video"
     compositeType: String, // "copy" | "paste"
 
     width: u32,
     height: u32,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 struct Script {
     id: String,
     props: Vec<StageDirection>,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 struct StageDirection {
     id: Option<String>,
     prop: String,
@@ -107,88 +110,78 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-async fn generateFrame(frame: usize, script: Script, props: Arc<HashMap<String, LoadedProp>>, canvasSize: Arc<CanvasSize>) -> Result<Vec<u8>, String> {
-
+fn generateFrame(
+    _frame: usize,
+    script: Script,
+    props: Arc<HashMap<String, LoadedProp>>,
+    canvasSize: Arc<CanvasSize>,
+) -> Result<Vec<u8>, String> {
     // spawn blocking compute
-    let bytes = tauri::async_runtime::spawn_blocking(move || -> Result<Vec<u8>, String> {
-        let startTotal = Instant::now();
+    let startTotal = Instant::now();
 
-        // 1. prepare blank canvas
-        let mut canvas = RgbaImage::new(canvasSize.width, canvasSize.height);
+    // 1. prepare blank canvas
+    let mut canvas = RgbaImage::new(canvasSize.width, canvasSize.height);
 
-        // 2. composite images
-        for stageDirection in script.props.iter() {
-            // fetch image from props
-            let loadedProp = props.get(&stageDirection.prop)
-                .ok_or(format!("prop not found: {}", &stageDirection.prop))?;
-            // let img = &loadedProp.image;
+    // 2. composite images
+    for stageDirection in script.props.iter() {
+        // fetch image from props
+        let loadedProp = props
+            .get(&stageDirection.prop)
+            .ok_or(format!("prop not found: {}", &stageDirection.prop))?;
+        // let img = &loadedProp.image;
 
-            // compute coordinates
-            // use mandated dimensions, if given, else use actual
-            let width = stageDirection.width.unwrap_or(loadedProp.width);
-            let height = stageDirection.height.unwrap_or(loadedProp.height);
-            let px = stageDirection.x.min(canvasSize.width.saturating_sub(width));
-            let py = stageDirection.y.min(canvasSize.height.saturating_sub(height));
+        // compute coordinates
+        // use mandated dimensions, if given, else use actual
+        let width = stageDirection.width.unwrap_or(loadedProp.width);
+        let height = stageDirection.height.unwrap_or(loadedProp.height);
+        let px = stageDirection.x.min(canvasSize.width.saturating_sub(width));
+        let py = stageDirection
+            .y
+            .min(canvasSize.height.saturating_sub(height));
 
-            // scale image if needed to prop.width/prop.height
-            // let imgResized = img.resize_exact(stageDirection.width, stageDirection.height, image::imageops::FilterType::Nearest);
+        // scale image if needed to prop.width/prop.height
+        // let imgResized = img.resize_exact(stageDirection.width, stageDirection.height, image::imageops::FilterType::Nearest);
 
-            // overlay on canvas
-            let spriteIndex = match loadedProp.propType.as_str() {
-                "video" => stageDirection.sprite.unwrap_or(0).min(loadedProp.sprites.len() - 1),
-                _ => stageDirection.sprite.unwrap_or(0),
-            };
-            if loadedProp.compositeType == "paste" {
-                fastCopyImage(
-                    &mut canvas,
-                    &loadedProp.sprites[spriteIndex],
-                    px,
-                    py,
-                );
-            }
-            else if loadedProp.compositeType == "overlay" {
-                image::imageops::overlay(
-                    &mut canvas,
-                    &loadedProp.sprites[spriteIndex],
-                    px as i64, py as i64,
-                );
-            }
+        // overlay on canvas
+        let spriteIndex = match loadedProp.propType.as_str() {
+            "video" => stageDirection
+                .sprite
+                .unwrap_or(0)
+                .min(loadedProp.sprites.len() - 1),
+            _ => stageDirection.sprite.unwrap_or(0),
+        };
+        if loadedProp.compositeType == "paste" {
+            fastCopyImage(&mut canvas, &loadedProp.sprites[spriteIndex], px, py);
+        } else if loadedProp.compositeType == "overlay" {
+            image::imageops::overlay(
+                &mut canvas,
+                &loadedProp.sprites[spriteIndex],
+                px as i64,
+                py as i64,
+            );
         }
+    }
 
-        // 4. return data
-        println!("Total frame generation: {:?}", startTotal.elapsed());
-        // Ok(buf.into_inner())
-        Ok(canvas.into_raw())
-    })
-    .await
-    .map_err(|e| format!("spawn error: {}", e))??;
-
-    Ok(bytes)
+    // 4. return data
+    println!("Total frame generation: {:?}", startTotal.elapsed());
+    Ok(canvas.into_raw())
 }
 
 #[tauri::command]
 async fn renderFrame(payload: serde_json::Value) -> Result<String, String> {
     println!("renderFrame() called");
 
-    let scene: Scene = serde_json::from_value(payload)
-        .map_err(|e| format!("failed to deserialize: {}", e))?;
+    let scene: Scene =
+        serde_json::from_value(payload).map_err(|e| format!("failed to deserialize: {}", e))?;
 
-    let props = Arc::new(loadProps(&scene.props)?);
-    let canvasSize = Arc::new(scene.canvasSize.clone());
+    // render
+    let frameProp = loadFrame(scene)?;
 
-    // render the frame
-    let bytes = generateFrame(
-        0,
-        scene.frames[0].clone(),
-        props,
-        canvasSize.clone(),
-    ).await?;
-
-    // return base64 data URL
+    // convert the loaded image to base64
     let mut buf = Cursor::new(Vec::new());
-    let canvas = RgbaImage::from_raw(canvasSize.width, canvasSize.height, bytes)
-        .ok_or("invalid canvas size")?;
-    canvas.write_to(&mut buf, ImageFormat::Png)
+    let canvas = &frameProp.sprites[0];
+    canvas
+        .write_to(&mut buf, ImageFormat::Png)
         .map_err(|e| format!("failed to encode PNG: {}", e))?;
     let b64 = base64::engine::general_purpose::STANDARD.encode(buf.get_ref());
 
@@ -196,19 +189,87 @@ async fn renderFrame(payload: serde_json::Value) -> Result<String, String> {
     Ok(format!("data:image/png;base64,{}", b64))
 }
 
+fn loadFrame(scene: Scene) -> Result<LoadedProp, String> {
+    println!("rendering frame of {}", scene.id.clone());
+    // 1. load props
+    let mut props = loadProps(&scene.props)?;
+    let canvasSize = Arc::new(scene.canvasSize.clone());
+
+    // 2. precompute complex assets
+    for precompute in scene.precompute.iter() {
+        println!("precomputing {}", precompute.id.clone());
+        let loaded = loadFrame(precompute.clone())?;
+        props.insert(
+            precompute.id.clone(),
+            LoadedProp {
+                id: loaded.id.clone(),
+                sprites: loaded.sprites.clone(),
+                propType: "image".into(),
+                compositeType: "paste".into(),
+                width: loaded.width,
+                height: loaded.height,
+            },
+        );
+    }
+    for (id, prop) in props.iter() {
+        println!(
+            "{} => type: {}, sprites: {} frames, {}x{}",
+            id,
+            prop.propType,
+            prop.sprites.len(),
+            prop.width,
+            prop.height
+        );
+    }
+    let props = Arc::new(props);
+
+    // 3. generate frame
+    let bytes = generateFrame(0, scene.frames[0].clone(), props, canvasSize.clone())?;
+
+    let image = image::RgbaImage::from_raw(scene.canvasSize.width, scene.canvasSize.height, bytes)
+        .ok_or("invalid canvas size")?;
+
+    Ok(LoadedProp {
+        id: scene.id,
+        sprites: vec![image],
+        propType: "image".into(),
+        compositeType: "paste".into(),
+        width: scene.canvasSize.width,
+        height: scene.canvasSize.height,
+    })
+}
+
 #[tauri::command]
 async fn renderVideo(payload: serde_json::Value) -> Result<String, String> {
     println!("renderVideo() called");
 
     // 1. deserialise payload as Scene
-    let scene: Scene = serde_json::from_value(payload)
-        .map_err(|e| format!("failed to deserialize: {}", e))?;
+    let scene: Scene =
+        serde_json::from_value(payload).map_err(|e| format!("failed to deserialize: {}", e))?;
 
     // 2. load props
-    let props = Arc::new(loadProps(&scene.props)?);
+    let mut props = loadProps(&scene.props)?;
     let canvasSize = Arc::new(scene.canvasSize.clone());
 
-    // 3. generate frames
+    // 3. precompute complex assets
+    for precompute in scene.precompute.iter() {
+        println!("precomputing {}", precompute.id.clone());
+        let loaded = loadFrame(precompute.clone())?;
+        props.insert(
+            precompute.id.clone(),
+            LoadedProp {
+                id: loaded.id.clone(),
+                sprites: loaded.sprites.clone(),
+                propType: "image".into(),
+                compositeType: "paste".into(),
+                width: loaded.width,
+                height: loaded.height,
+            },
+        );
+    }
+    let props = Arc::new(props);
+
+    // 4. generate frames
     let mut frames: Vec<Vec<u8>> = Vec::new();
     for (i, frame) in scene.frames.iter().enumerate() {
         let frame = generateFrame(
@@ -217,7 +278,7 @@ async fn renderVideo(payload: serde_json::Value) -> Result<String, String> {
             // cloning Arc does not clone underlying data
             props.clone(),
             canvasSize.clone(),
-        ).await?;
+        )?;
         frames.push(frame);
         println!("generated frame {}/{}", frames.len(), scene.frames.len());
     }
@@ -225,20 +286,34 @@ async fn renderVideo(payload: serde_json::Value) -> Result<String, String> {
     // let outputFile = TEMP_DIR.join("output.mp4"); // XXX
     let outputFile = format!("{}/bin/{}.mp4", *PROJECT_DIR, scene.id);
 
-    // 4. encode video (ffmpeg)
+    // 5. encode video (ffmpeg)
     let mut ffmpeg = std::process::Command::new("ffmpeg")
         .args([
             "-y",
-            "-f", "rawvideo",
-            "-pix_fmt", "rgba",
-            "-video_size", &format!("{}x{}", canvasSize.width, canvasSize.height),
-            "-framerate", &format!("{}", scene.fps),
-            "-i", "-",
-            "-i", &format!("{}/public/{}", *PROJECT_DIR, scene.audio.ok_or("no audio track provided")?),
-            "-map", "0:v",
-            "-map", "1:a",
-            "-c:v", "libx264",
-            "-pix_fmt", "yuv420p",
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "rgba",
+            "-video_size",
+            &format!("{}x{}", canvasSize.width, canvasSize.height),
+            "-framerate",
+            &format!("{}", scene.fps),
+            "-i",
+            "-",
+            "-i",
+            &format!(
+                "{}/public/{}",
+                *PROJECT_DIR,
+                scene.audio.ok_or("no audio track provided")?
+            ),
+            "-map",
+            "0:v",
+            "-map",
+            "1:a",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
             // "-shortest",
             &outputFile.to_string(),
         ])
@@ -250,12 +325,15 @@ async fn renderVideo(payload: serde_json::Value) -> Result<String, String> {
     {
         let stdin = ffmpeg.stdin.as_mut().ok_or("failed to open ffmpeg stdin")?;
         for frameBytes in frames {
-            stdin.write(&frameBytes)
+            stdin
+                .write(&frameBytes)
                 .map_err(|e| format!("failed to write to ffmpeg stdin: {}", e))?;
         }
     }
 
-    let status = ffmpeg.wait().map_err(|e| format!("ffmpeg wait error: {}", e))?;
+    let status = ffmpeg
+        .wait()
+        .map_err(|e| format!("ffmpeg wait error: {}", e))?;
     if !status.success() {
         return Err(format!("ffmpeg exited with {}", status));
     }
@@ -271,11 +349,16 @@ async fn extractAudio(videoPath: String, audioSampleRate: u32) -> Result<Vec<f32
     // extract audio
     let mut ffmpeg = std::process::Command::new("ffmpeg")
         .args([
-            "-i", &videoPath,
-            "-ac", "1",       // mono
-            "-f", "f32le",    // raw float PCM
-            "-ar", &audioSampleRate.to_string(),
-            "-ss", "0",
+            "-i",
+            &videoPath,
+            "-ac",
+            "1", // mono
+            "-f",
+            "f32le", // raw float PCM
+            "-ar",
+            &audioSampleRate.to_string(),
+            "-ss",
+            "0",
             // "-t", "duration",
             "-",
         ])
@@ -284,12 +367,17 @@ async fn extractAudio(videoPath: String, audioSampleRate: u32) -> Result<Vec<f32
         .spawn()
         .map_err(|e| format!("failed to spawn ffmpeg: {}", e))?;
 
-    let stdout = ffmpeg.stdout.as_mut().ok_or("failed to open ffmpeg stdout")?;
+    let stdout = ffmpeg
+        .stdout
+        .as_mut()
+        .ok_or("failed to open ffmpeg stdout")?;
     let mut buf = Vec::new();
-    stdout.read_to_end(&mut buf)
+    stdout
+        .read_to_end(&mut buf)
         .map_err(|e| format!("failed to read ffmpeg stdout: {}", e))?;
 
-    let status = ffmpeg.wait()
+    let status = ffmpeg
+        .wait()
         .map_err(|e| format!("ffmpeg wait failed: {}", e))?;
     if !status.success() {
         return Err(format!("ffmpeg exited with {:?}", status.code()));
@@ -310,13 +398,15 @@ async fn extractAudio(videoPath: String, audioSampleRate: u32) -> Result<Vec<f32
         sample_format: SampleFormat::Float,
     };
     let wavPath = TEMP_DIR.join("audio.wav");
-    let mut writer = WavWriter::create(&wavPath, spec)
-    .map_err(|e| format!("failed to create wav: {}", e))?;
+    let mut writer =
+        WavWriter::create(&wavPath, spec).map_err(|e| format!("failed to create wav: {}", e))?;
     for sample in &floats {
-        writer.write_sample(*sample)
+        writer
+            .write_sample(*sample)
             .map_err(|e| format!("failed to write sample: {}", e))?;
     }
-    writer.finalize()
+    writer
+        .finalize()
         .map_err(|e| format!("failed to finalize wav: {}", e))?;
 
     // return raw data to frontend
@@ -326,15 +416,20 @@ async fn extractAudio(videoPath: String, audioSampleRate: u32) -> Result<Vec<f32
 
 #[tauri::command]
 fn getVideoData(path: &str) -> Result<VideoData, String> {
-    println!("extractAudio() called");
+    println!("getVideoData() called");
 
     let output = std::process::Command::new("ffprobe")
         .args([
-            "-v", "error",
-            "-select_streams", "v:0",
-            "-show_entries", "stream=width,height,r_frame_rate,duration",
-            "-show_entries", "format_tags=creation_time",
-            "-of", "json",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height,r_frame_rate,duration",
+            "-show_entries",
+            "format_tags=creation_time",
+            "-of",
+            "json",
             path,
         ])
         .output()
@@ -409,18 +504,21 @@ async fn diariseAudio() -> Result<String, String> {
 fn loadProps(props: &HashMap<String, Prop>) -> Result<HashMap<String, LoadedProp>, String> {
     let mut loadedProps: HashMap<String, LoadedProp> = HashMap::new();
     for (id, prop) in props.iter() {
-        
         let mut loadedSprites: Vec<RgbaImage> = Vec::new();
         if prop.propType == "image" {
             // load all images as array (spritesheet)
             for spritePath in prop.sprites.iter() {
                 let img = image::open(spritePath)
-                    .map_err(|e| format!("failed to open sprite {} for prop {}: {}", spritePath, &prop.id, e))?
+                    .map_err(|e| {
+                        format!(
+                            "failed to open sprite {} for prop {}: {}",
+                            spritePath, &prop.id, e
+                        )
+                    })?
                     .to_rgba8();
                 loadedSprites.push(img);
             }
-        }
-        else if prop.propType == "video" {
+        } else if prop.propType == "video" {
             // load all frames into image array
             loadedSprites = loadVideoFrames(
                 &prop.sprites[0],
@@ -428,7 +526,28 @@ fn loadProps(props: &HashMap<String, Prop>) -> Result<HashMap<String, LoadedProp
                 prop.height.unwrap_or(1080),
             )?;
         }
-        
+        else if prop.propType == "colour" {
+            if let Some(colour) = &prop.colour {
+                // extract RGB
+                let r = colour[0];
+                let g = colour[1];
+                let b = colour[2];
+
+                // create an image of the given size filled with the colour
+                let width = prop.width.unwrap_or(1920);
+                let height = prop.height.unwrap_or(1080);
+                let mut img = image::RgbaImage::new(width, height);
+
+                for px in img.pixels_mut() {
+                    *px = image::Rgba([r, g, b, 255]);
+                }
+                loadedSprites.push(img);
+            }
+            else {
+                return Err(format!("Colour prop {} has no colour value", &prop.id));
+            }
+        }
+
         let mut width = 0;
         let mut height = 0;
         if let Some(first) = loadedSprites.first() {
@@ -437,14 +556,17 @@ fn loadProps(props: &HashMap<String, Prop>) -> Result<HashMap<String, LoadedProp
             height = first.height();
         }
 
-        loadedProps.insert(id.clone(), LoadedProp {
-            id: id.clone(),
-            sprites: loadedSprites,
-            propType: prop.propType.clone(),
-            compositeType: prop.compositeType.clone(),
-            width,
-            height,
-        });
+        loadedProps.insert(
+            id.clone(),
+            LoadedProp {
+                id: id.clone(),
+                sprites: loadedSprites,
+                propType: prop.propType.clone(),
+                compositeType: prop.compositeType.clone(),
+                width,
+                height,
+            },
+        );
     }
     Ok(loadedProps)
 }
@@ -452,10 +574,14 @@ fn loadProps(props: &HashMap<String, Prop>) -> Result<HashMap<String, LoadedProp
 fn loadVideoFrames(path: &str, width: u32, height: u32) -> Result<Vec<RgbaImage>, String> {
     let mut cmd = std::process::Command::new("ffmpeg")
         .args([
-            "-i", path,
-            "-f", "rawvideo",
-            "-pix_fmt", "rgba",
-            "-vf", &format!("scale={}x{}", width, height),
+            "-i",
+            path,
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "rgba",
+            "-vf",
+            &format!("scale={}x{}", width, height),
             // "-r", &fps.to_string(),
             "-",
         ])
@@ -466,7 +592,9 @@ fn loadVideoFrames(path: &str, width: u32, height: u32) -> Result<Vec<RgbaImage>
     let stdout = cmd.stdout.as_mut().ok_or("failed to open ffmpeg stdout")?;
     let frame_size = (width * height * 4) as usize; // RGBA
     let mut buffer = Vec::new();
-    stdout.read_to_end(&mut buffer).map_err(|e| format!("failed to read ffmpeg stdout: {}", e))?;
+    stdout
+        .read_to_end(&mut buffer)
+        .map_err(|e| format!("failed to read ffmpeg stdout: {}", e))?;
 
     let mut frames = Vec::new();
     for chunk in buffer.chunks_exact(frame_size) {
@@ -475,7 +603,9 @@ fn loadVideoFrames(path: &str, width: u32, height: u32) -> Result<Vec<RgbaImage>
         frames.push(img);
     }
 
-    let status = cmd.wait().map_err(|e| format!("ffmpeg wait error: {}", e))?;
+    let status = cmd
+        .wait()
+        .map_err(|e| format!("ffmpeg wait error: {}", e))?;
     if !status.success() {
         return Err("ffmpeg exited with error".into());
     }
@@ -492,7 +622,7 @@ fn fastCopyImage(dest: &mut RgbaImage, src: &RgbaImage, x: u32, y: u32) {
             std::ptr::copy_nonoverlapping(
                 src.as_ptr().add(srcStart),
                 dest.as_mut_ptr().add(destStart),
-                (w * 4) as usize
+                (w * 4) as usize,
             );
         }
     }

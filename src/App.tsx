@@ -69,6 +69,7 @@ function App() {
             invoke<CustomVideoAsset>('getVideoData', { path: `${STAGEHAND_DIR}/stagehand/public/${src}` })
                 .then(data => {
                     setVideoData({
+                        propType: 'customVideo',
                         id: videoName,
                         src: src,
                         height: data.height,
@@ -126,6 +127,7 @@ function App() {
     async function generatePreviewFrame() {
         if (videoData) {
             const scene = await sceneFromTemplate(template, [videoData], audioData, audioSplit);
+            console.log(scene);
             const singleFrameScene: Scene = { ...scene, frames: [scene.frames[0]] };
             const render = await invoke('renderFrame', { payload: singleFrameScene });
             setFrames([render as string]);
@@ -335,9 +337,9 @@ function App() {
 
                     <div className='section'>
                         {/* <h2>Template</h2> */}
-                        <img className='pane'
+                        {/* <img className='pane'
                             src={new URL(template.background.image, import.meta.url).href}
-                        />
+                        /> */}
                     </div>
 
                     <div className='section'>
