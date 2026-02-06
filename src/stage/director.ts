@@ -1,5 +1,7 @@
 import seedrandom from 'seedrandom';
 
+import { calculateMoonPhase } from '../data/background';
+
 import { Template } from './Template';
 import { Prop, Scene, Script, StageDirection } from './stage';
 
@@ -95,10 +97,13 @@ export function scriptFromTemplate(
 
         // blinking
         const blinker = prngs?.[id];
+        const sprite = (head.id === 'moon')
+            ? calculateMoonPhase(datetime ?? new Date)
+            : (blinker?.isBlink(frame) ? 1 : 0); //XXX
 
         props.push({
             prop: id,
-            sprite: blinker?.isBlink(frame) ? 1 : 0,//XXX
+            sprite,
             x: Math.round(px + ox),
             y: Math.round(py + oy),
             width: head.width,
@@ -384,10 +389,7 @@ export async function sceneFromTemplate(
     // handle audio
     const filteredVolumesPerFrame = [];
     if (customAssets.length > 0) {
-        console.log('length of floatSamples:', audioData?.length ?? 0);
-        console.log(customAssets);
         const volumesPerFrame = computeRMSPerFrame(audioData, customAssets[0].audioSampleRate, fps);
-        console.log('length of volumes:', volumesPerFrame.length);
 
         // associate volumes to heads
         for (let i = 0; i < volumesPerFrame.length; i++) {
@@ -396,17 +398,17 @@ export async function sceneFromTemplate(
                 'pengwyn': isWithinBounds(audioSplit['pengwyn'], i, fps) ? (volumesPerFrame[i] * 1.2) : 0,
             });
         }
-        console.log('audioFrames:', volumesPerFrame.length);
     }
 
     // generate blinking patterns
     const prngs: Record<string, Blinker> = {};
     template.heads.forEach(head => {
         if (head.propType === 'image' && head.sprites.length > 1) {
+            const id = (customAssets?.length > 0) ? customAssets?.[0].src : 'null';
             prngs[head.id] = new Blinker(
                 1.2 * fps, 7 * fps,
                 0.16 * fps, 0.32 * fps,
-                seedrandom(`${customAssets?.[0].src ?? 'null'}-${head.id}`)
+                seedrandom(`${id}-${head.id}`)
             );
         }
     });
@@ -431,7 +433,6 @@ export async function sceneFromTemplate(
 
     // calculate frames
     const totalFrames = (durationSec !== -Infinity && fps !== 0) ? (durationSec * fps) : 1;
-    console.log('totalFrames:', totalFrames);
     for (let i = 0; i < totalFrames; i++) {
         const frameTimeSec = i / fps;
         if (currentDatetime && frameTimeSec % 1 === 0) {
