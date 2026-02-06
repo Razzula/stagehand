@@ -53,6 +53,12 @@ function calculateMoonPath(datetime: Date, latitude = 53.483959, longitude = -2.
     ];
 }
 
+export function calculateMoonPhase(datetime: Date) {
+    const phases = SunCalc.getMoonIllumination(datetime);
+    const index = Math.min(7, Math.floor(phases.phase * 8));
+    return index;
+}
+
 function calculateSkyColour(datetime: Date, latitude = 53.483959, longitude = -2.244644): { t: number, colour: RGB }[] {
     const dayStart = new Date(datetime);
     dayStart.setHours(0, 0, 0, 0);
@@ -65,7 +71,7 @@ function calculateSkyColour(datetime: Date, latitude = 53.483959, longitude = -2
         const ms = time.getTime() - dayStart.getTime();
         return ms / totalMs; // normalized [0,1]
     };
-    console.log(times);
+
     return [
         // night start
         { t: 0, colour: [0, 0, 30] },
@@ -149,8 +155,8 @@ export const background: Template = {
             sprites: [
                 '/assets/sprites/sky/sun.png',
             ],
-            width: 100,
-            height: 100,
+            width: 200,
+            height: 200,
             origin: { x: 0, y: 0, },
             propType: 'image',
             compositeType: 'overlay',
@@ -161,7 +167,14 @@ export const background: Template = {
         {
             id: 'moon',
             sprites: [
-                '/assets/sprites/sky/moon.png',
+                '/assets/sprites/sky/moon-new.png',
+                '/assets/sprites/sky/moon-waxing-crescent.png',
+                '/assets/sprites/sky/moon-quarter-first.png',
+                '/assets/sprites/sky/moon-waxing-gibbous.png',
+                '/assets/sprites/sky/moon-full.png',
+                '/assets/sprites/sky/moon-waning-gibbous.png',
+                '/assets/sprites/sky/moon-quarter-last.png',
+                '/assets/sprites/sky/moon-waning-crescent.png',
             ],
             width: 100,
             height: 100,
