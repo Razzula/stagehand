@@ -110,6 +110,20 @@ export const testplate: Template = {
             compositeType: 'overlay',
         },
         {
+            id: 'pengwyn-santa',
+            class: 'pengwyn-hat',
+            sprites: [
+                '/assets/sprites/pengwyn/santa.png',
+            ],
+            origin: {
+                x: 227,
+                y: 364,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+            disabled: true,
+        },
+        {
             id: 'kiwi-eyes',
             sprites: [
                 '/assets/sprites/kiwi/kiwieyes.png',
@@ -133,6 +147,20 @@ export const testplate: Template = {
             },
             propType: 'image',
             compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-santa',
+            class: 'kiwi-hat',
+            sprites: [
+                '/assets/sprites/kiwi/santa.png',
+            ],
+            origin: {
+                x: 1521,
+                y: 161,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+            disabled: true,
         },
     ],
     video: {
@@ -213,6 +241,19 @@ export const testplate: Template = {
             compositeType: 'overlay',
         },
         {
+            id: 'razz-x1',
+            class: 'razz-held-right',
+            sprites: [
+                '/assets/sprites/pengwyn/razzX1.png',
+            ],
+            origin: {
+                x: 368,
+                y: 604,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
             id: 'kiwi-treaty',
             class: 'kiwi-held-right',
             sprites: [
@@ -260,6 +301,71 @@ export const testplate: Template = {
             origin: {
                 x: 1236,
                 y: 449,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-x1',
+            class: 'kiwi-held-right',
+            sprites: [
+                '/assets/sprites/kiwi/kiwiX1.png',
+            ],
+            origin: {
+                x: 1229,
+                y: 476,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-wii',
+            class: 'kiwi-held-right',
+            sprites: [
+                '/assets/sprites/kiwi/kiwiWii.png',
+            ],
+            origin: {
+                x: 1256,
+                y: 436,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-cheese',
+            class: 'kiwi-held-right',
+            sprites: [
+                '/assets/sprites/kiwi/kiwiCheese.png',
+            ],
+            origin: {
+                x: 1252,
+                y: 435,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-mug',
+            class: 'kiwi-held-left',
+            sprites: [
+                '/assets/sprites/kiwi/kiwiMug.png',
+            ],
+            origin: {
+                x: 1475,
+                y: 656,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-wiichuck',
+            class: 'kiwi-held-left',
+            sprites: [
+                '/assets/sprites/kiwi/kiwiWiichuck.png',
+            ],
+            origin: {
+                x: 1493,
+                y: 659,
             },
             propType: 'image',
             compositeType: 'overlay',
