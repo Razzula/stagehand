@@ -127,7 +127,6 @@ function App() {
     async function generatePreviewFrame() {
         if (videoData) {
             const scene = await sceneFromTemplate(template, [videoData], audioData, audioSplit);
-            console.log(scene);
             const singleFrameScene: Scene = { ...scene, frames: [scene.frames[0]] };
             const render = await invoke('renderFrame', { payload: singleFrameScene });
             setFrames([render as string]);
