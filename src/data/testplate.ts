@@ -228,6 +228,33 @@ export const testplate: Template = {
             compositeType: 'overlay',
         },
         {
+            id: 'razz-keyboard',
+            class: 'razz-held-right',
+            sprites: [
+                '/assets/sprites/pengwyn/razzKeyboard.png',
+            ],
+            origin: {
+                x: 300,
+                y: 668,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'razz-mouse',
+            class: 'razz-held-left',
+            sprites: [
+                '/assets/sprites/pengwyn/razzMouse.png',
+            ],
+            origin: {
+                x: 470,
+                y: 649,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+            disabled: true,
+        },
+        {
             id: 'razz-bible',
             class: 'razz-held-right',
             sprites: [
@@ -286,7 +313,7 @@ export const testplate: Template = {
                 '/assets/sprites/kiwi/kiwiScroll.png',
             ],
             origin: {
-                x: 1190,
+                x: 1192,
                 y: 457,
             },
             propType: 'image',
@@ -345,7 +372,20 @@ export const testplate: Template = {
             compositeType: 'overlay',
         },
         {
-            id: 'kiwi-mug',
+            id: 'kiwi-mug-right',
+            class: 'kiwi-held-right',
+            sprites: [
+                '/assets/sprites/kiwi/kiwiMugR.png',
+            ],
+            origin: {
+                x: 1258,
+                y: 466,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-mug-left',
             class: 'kiwi-held-left',
             sprites: [
                 '/assets/sprites/kiwi/kiwiMug.png',
