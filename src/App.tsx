@@ -6,7 +6,9 @@ import { testplate } from './data/testplate';
 import { Scene } from './stage/stage';
 
 import './App.scss';
-import { Template } from './stage/Template';
+import { Asset, Template } from './stage/Template';
+import { Tooltip, TooltipContent, TooltipTrigger } from './common/Tooltip';
+import { fetchWeather } from './data/background';
 
 const STAGEHAND_DIR = '/media/razzula/media2/Programming/Web/';
 
@@ -14,6 +16,7 @@ function App() {
 
     const [trueTemplate, _setTrueTemplate] = useState<Template>(testplate);
     const [template, setTemplate] = useState<Template>(testplate);
+    const [props, setProps] = useState<Asset[]>([]);
 
     const [videoName, setVideoName] = useState<string | null>(null);
 
@@ -45,7 +48,7 @@ function App() {
         async function tick() {
             setTick(prev => prev + 1);
             const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-            await delay(500);
+            await delay(800);
             tick();
         }
         tick();
@@ -54,13 +57,15 @@ function App() {
     useEffect(() => {
         const newTemplate = { ...trueTemplate };
         const classes: Record<string, true> = {};
-        [...newTemplate.heads, ...newTemplate.others].forEach(prop => {
+        const props = getProps(newTemplate);
+        props.forEach(prop => {
             if (prop.class && !classes[prop.class]) {
                 enforcePropMutex(prop.id, prop.class, newTemplate);
                 classes[prop.class] = true;
             }
         });
         setTemplate(newTemplate);
+        setProps(props);
     }, [trueTemplate]);
 
     useEffect(() => {
@@ -93,6 +98,31 @@ function App() {
             'pengwyn': 'null',
             'none': 'null',
         });
+
+        if (videoData) {
+            fetchWeather(videoData.datetime).then(wmo => {
+                console.log('weather:', wmo);
+                let newTemplate = {...template};
+                if (wmo === 0) {
+                    // sunny
+                    enforcePropMutex('null', 'weather', newTemplate);
+                    enforcePropMutex('null', 'clouds', newTemplate);
+                }
+                else if (wmo <= 2) {
+                    newTemplate = setProp('clouds', newTemplate, true);
+                }
+                else if (wmo >= 3) {
+                    newTemplate = setProp('stormclouds-day', newTemplate, true);
+                    if ((wmo >= 51 && wmo <= 67) || (wmo >= 80 && wmo <= 82)) {
+                        newTemplate = setProp('rain', newTemplate, true);
+                    }
+                    else if ((wmo >= 71 && wmo <= 77) || (wmo >= 85 && wmo <= 86)) {
+                        newTemplate = setProp('snow', newTemplate, true);
+                    }
+                }
+                setTemplate(newTemplate);
+            });
+        }
     }, [videoData]);
 
     useMemo(() => {
@@ -114,7 +144,10 @@ function App() {
             generatePreviewFrame();
             if (audioData && audioSplit) {
                 sceneFromTemplate(template, [videoData], audioData, audioSplit)
-                    .then(scene => setScene(scene));
+                    .then(scene => {
+                        console.log(scene);
+                        setScene(scene);
+                    });
             }
         }
     }, [template, videoData, audioData, audioSplit]);
@@ -123,6 +156,30 @@ function App() {
         // convert immutable diarisation to mutable
         setMutDiarisation({ ...imutDiarisation });
     }, [imutDiarisation]);
+
+    function getProps(template: Template): Asset[] {
+        const collected: Asset[] = [];
+
+        function walkTemplate(t: Template) {
+            const assets = [
+                t.background,
+                ...t.heads,
+                ...t.others,
+                // ...t.extra,
+                // ...(t.video ? [t.video] : []),
+            ];
+
+            for (const asset of assets) {
+                collected.push(asset);
+                if (asset.propType === 'precomposed') {
+                    walkTemplate(asset.template);
+                }
+            }
+        }
+
+        walkTemplate(template);
+        return collected;
+    }
 
     async function generatePreviewFrame() {
         if (videoData) {
@@ -237,28 +294,55 @@ function App() {
     }
 
     function toggleProp(propID: string) {
-        const newTemplate = { ...template };
-        [...newTemplate.heads, ...newTemplate.others].forEach(prop => {
-            if (prop.id === propID) {
-                // toggle Prop
-                if (prop.disabled === undefined) {
-                    prop.disabled = true;
-                }
-                else {
-                    prop.disabled = !prop.disabled;
-                }
+        setTemplate(prev => setProp(propID, prev));
+    }
 
-                // handle mutex
-                if (prop.class) {
-                    enforcePropMutex(propID, prop.class, newTemplate);
+    function setProp(propID: string, template: Template, value?: boolean) {
+        function walkTemplate(t: Template): Template {
+            return {
+                ...t,
+                background: walkAsset(t.background),
+                heads: t.heads.map(walkAsset),
+                others: t.others.map(walkAsset),
+                // extra: t.extra.map(walkAsset),
+                // video: t.video ? walkAsset(t.video) : undefined,
+            };
+        }
+
+        function walkAsset(asset: Asset): Asset {
+            // If this is the target asset
+            if (asset.id === propID) {
+                const newValue = (value === undefined)
+                ? (asset.disabled === undefined ? true: !asset.disabled) // toggle
+                : !value;
+                const updated = {
+                    ...asset,
+                    disabled: newValue,
+                };
+
+                if (updated.class) {
+                    enforcePropMutex(propID, updated.class, template);
                 }
+                return updated;
             }
-        });
-        setTemplate(newTemplate);
+
+            // Recurse into precomposed
+            if (asset.propType === "precomposed") {
+                return {
+                    ...asset,
+                    template: walkTemplate(asset.template),
+                };
+            }
+
+            return asset;
+        }
+
+        return walkTemplate(template);
     }
 
     function enforcePropMutex(propID: string, propClass: string, newTemplate: Template) {
-        [...newTemplate.heads, ...newTemplate.others].forEach(p => {
+        const props = getProps(newTemplate);
+        props.forEach(p => {
             if (p.id !== propID && p.class === propClass) {
                 p.disabled = true;
             }
@@ -344,15 +428,23 @@ function App() {
                     <div className='section'>
                         <div className='quaterise'>
                             {
-                                [...template.heads, ...template.others].map(prop => (
-                                    <img className={`pane ${prop.disabled ? 'propDisabled' : 'propEnabled'}`}
-                                        src={new URL(prop.sprites?.[tick % prop.sprites?.length], import.meta.url).href}
-                                        onClick={() => toggleProp(prop.id)}
-                                        style={{
-                                            maxWidth: 200,
-                                            aspectRatio: 1,
-                                        }}
-                                    />
+                                getProps(template).map(prop => (
+                                    <Tooltip>
+                                        <TooltipTrigger>
+                                            <img className={`pane ${prop.disabled ? 'propDisabled' : 'propEnabled'}`}
+                                                src={prop?.sprites
+                                                    ? new URL(prop.sprites?.[tick % prop.sprites?.length], import.meta.url).href
+                                                    : 'null'
+                                                }
+                                                onClick={() => toggleProp(prop.id)}
+                                                style={{
+                                                    maxWidth: 200,
+                                                    aspectRatio: 1,
+                                                }}
+                                            />
+                                        </TooltipTrigger>
+                                        <TooltipContent>{prop.id}</TooltipContent>
+                                    </Tooltip>
                                 ))
                             }
                         </div>

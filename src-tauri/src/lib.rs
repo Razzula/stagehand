@@ -46,7 +46,7 @@ struct Prop {
     colour: Option<[u8; 3]>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct LoadedProp {
     id: String,
     sprites: Vec<RgbaImage>,
@@ -152,7 +152,8 @@ fn generateFrame(
         };
         if loadedProp.compositeType == "paste" {
             fastCopyImage(&mut canvas, &loadedProp.sprites[spriteIndex], px, py);
-        } else if loadedProp.compositeType == "overlay" {
+        }
+        else if loadedProp.compositeType == "overlay" {
             image::imageops::overlay(
                 &mut canvas,
                 &loadedProp.sprites[spriteIndex],
@@ -210,6 +211,7 @@ fn loadFrame(scene: Scene) -> Result<LoadedProp, String> {
                 height: loaded.height,
             },
         );
+        println!("precomputed {}!", precompute.id.clone());
     }
     for (id, prop) in props.iter() {
         println!(
@@ -223,15 +225,19 @@ fn loadFrame(scene: Scene) -> Result<LoadedProp, String> {
     }
     let props = Arc::new(props);
 
-    // 3. generate frame
-    let bytes = generateFrame(0, scene.frames[0].clone(), props, canvasSize.clone())?;
-
-    let image = image::RgbaImage::from_raw(scene.canvasSize.width, scene.canvasSize.height, bytes)
-        .ok_or("invalid canvas size")?;
+    // 3. generate frames
+    let mut loadedFrames = Vec::new();
+    for (i, frameScript) in scene.frames.iter().enumerate() {
+        let bytes = generateFrame(i, frameScript.clone(), props.clone(), canvasSize.clone())?;
+        let image =
+            image::RgbaImage::from_raw(scene.canvasSize.width, scene.canvasSize.height, bytes)
+                .ok_or(format!("invalid canvas size at frame {}", i))?;
+        loadedFrames.push(image);
+    }
 
     Ok(LoadedProp {
-        id: scene.id,
-        sprites: vec![image],
+        id: scene.id.clone(),
+        sprites: loadedFrames,
         propType: "image".into(),
         compositeType: "paste".into(),
         width: scene.canvasSize.width,
@@ -518,7 +524,8 @@ fn loadProps(props: &HashMap<String, Prop>) -> Result<HashMap<String, LoadedProp
                     .to_rgba8();
                 loadedSprites.push(img);
             }
-        } else if prop.propType == "video" {
+        }
+        else if prop.propType == "video" {
             // load all frames into image array
             loadedSprites = loadVideoFrames(
                 &prop.sprites[0],

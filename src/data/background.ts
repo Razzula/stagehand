@@ -90,6 +90,24 @@ function calculateSkyColour(datetime: Date, latitude = 53.483959, longitude = -2
     ];
 }
 
+export async function fetchWeather(datetime: Date, latitude = 53.483959, longitude = -2.244644): Promise<number> {
+    const date = datetime.toISOString().split("T")[0]; // YYYY-MM-DD
+
+    const url = new URL("https://archive-api.open-meteo.com/v1/archive");
+    url.searchParams.set("latitude", latitude.toString());
+    url.searchParams.set("longitude", longitude.toString());
+    url.searchParams.set("start_date", date);
+    url.searchParams.set("end_date", date);
+    url.searchParams.set("daily", "weather_code");
+    url.searchParams.set("timezone", "Europe/London");
+
+    const res = await fetch(url.toString());
+    if (!res.ok) throw new Error("Weather fetch failed");
+
+    const data = await res.json();
+    return data.daily.weather_code[0]; // WMO weather code
+}
+
 function interpolatePath(path: { t: number, x: number, y: number }[], t: number) {
     // clamp t to [0,1]
     t = Math.max(0, Math.min(1, t));
@@ -151,6 +169,16 @@ export const background: Template = {
     },
     heads: [
         {
+            id: 'stars',
+            sprites: [
+                '/assets/sprites/sky/stars-1.png',
+            ],
+            origin: { x: 0, y: 0, },
+            propType: 'image',
+            compositeType: 'overlay',
+            disabled: true,
+        },
+        {
             id: 'sun',
             sprites: [
                 '/assets/sprites/sky/sun.png',
@@ -185,8 +213,65 @@ export const background: Template = {
                 'offset': (t: number, d?: Date) => interpolatePath(calculateMoonPath(d ?? new Date), t),
             }
         },
+        {
+            id: 'stormclouds-day',
+            class: 'clouds',
+            sprites: [
+                '/assets/sprites/sky/clouds-storm.png',
+            ],
+            origin: { x: 0, y: 0, },
+            propType: 'image',
+            compositeType: 'overlay',
+            disabled: true,
+        },
+        {
+            id: 'rain',
+            class: 'weather',
+            sprites: [
+                '/assets/sprites/sky/rain-1.png',
+                '/assets/sprites/sky/rain-2.png',
+                '/assets/sprites/sky/rain-3.png',
+            ],
+            origin: { x: 0, y: 0, },
+            propType: 'image',
+            compositeType: 'overlay',
+            disabled: true,
+        },
+        {
+            id: 'snow',
+            class: 'weather',
+            sprites: [
+                '/assets/sprites/sky/stars-1.png',
+                '/assets/sprites/sky/stars-2.png',
+                '/assets/sprites/sky/stars-3.png',
+            ],
+            origin: { x: 0, y: 0, },
+            propType: 'image',
+            compositeType: 'overlay',
+            disabled: true,
+        },
     ],
     others: [
+        {
+            id: 'clouds',
+            class: 'clouds',
+            sprites: [
+                '/assets/sprites/sky/clouds.png',
+            ],
+            origin: { x: 0, y: 0, },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'stormclouds-night',
+            class: 'clouds',
+            sprites: [
+                '/assets/sprites/sky/clouds-storm-night.png',
+            ],
+            origin: { x: 0, y: 0, },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
         {
             id: 'scene-plate',
             sprites: [
