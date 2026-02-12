@@ -41,23 +41,41 @@ export function scriptFromTemplate(
     const props: StageDirection[] = [];
 
     if (template.background) {
-        const prop: StageDirection = {
-            prop: template.background.id,
-            x: origin.x,
-            y: origin.y,
-            width: template.background.width,
-            height: template.background.height,
-        };
-        if (template.background.propType === 'colour') {
-            if (template.background.paths?.colour) {
-                const secondsOfDay = datetime
-                    ? datetime.getHours() * 3600 + datetime.getMinutes() * 60 + datetime.getSeconds()
-                    : 0;
-                const i = ['skybox'].includes(template.background.id) ? (secondsOfDay / 86400) : frame;
-                prop.colour = template.background.paths.colour(i, datetime) as [number, number, number];
+        if (!template.background.disabled) {
+            const prop: StageDirection = {
+                prop: template.background.id,
+                x: origin.x,
+                y: origin.y,
+                width: template.background.width,
+                height: template.background.height,
+                sprite: 0,
+            };
+            if (template.background.propType === 'colour') {
+                if (template.background.paths?.colour) {
+                    const secondsOfDay = datetime
+                        ? datetime.getHours() * 3600 + datetime.getMinutes() * 60 + datetime.getSeconds()
+                        : 0;
+                    const i = ['skybox'].includes(template.background.id) ? (secondsOfDay / 86400) : frame;
+                    prop.colour = template.background.paths.colour(i, datetime) as [number, number, number];
+                }
             }
+            if (template.background.propType === 'precomposed') {
+                const rain = template.background.template.heads.find(h => h.id === 'rain');
+                if (rain && !rain.disabled) {
+                    // RAIN
+                    const blinker = prngs?.[rain.id];
+                    prop.sprite = blinker?.getSprite(frame) ?? 0;
+                }
+                const snow = template.background.template.heads.find(h => h.id === 'snow');
+                if (snow && !snow.disabled) {
+                    // STARS
+                    const blinker = prngs?.[snow.id];
+                    prop.sprite = blinker?.getSprite(frame) ?? 0;
+                }
+
+            }
+            props.push(prop);
         }
-        props.push(prop);
     }
 
     for (const head of template.heads) {
@@ -99,7 +117,7 @@ export function scriptFromTemplate(
         const blinker = prngs?.[id];
         const sprite = (head.id === 'moon')
             ? calculateMoonPhase(datetime ?? new Date)
-            : (blinker?.isBlink(frame) ? 1 : 0); //XXX
+            : blinker?.getSprite(frame) ?? 0;
 
         props.push({
             prop: id,
@@ -112,6 +130,7 @@ export function scriptFromTemplate(
     }
 
     for (const customAsset of customAssets) {
+
         if (template.video) {
             const id = customAsset.id;
 
@@ -146,7 +165,7 @@ export function scriptFromTemplate(
 
         props.push({
             prop: id,
-            sprite: blinker?.isBlink(frame) ? 1 : 0,
+            sprite: blinker?.getSprite(frame) ?? 0,
             x: px,
             y: py,
             width: other.width,
@@ -288,6 +307,8 @@ export async function sceneFromTemplate(
 
     let currentDatetime = datetime ?? customAssets?.[0]?.datetime ?? undefined;
 
+    let spriteCount = 1;
+
     // setup props
     for (const prop of [
         template.background,
@@ -302,6 +323,9 @@ export async function sceneFromTemplate(
                 propType: prop.propType,
                 compositeType: prop.compositeType,
             };
+            if (prop.sprites?.length > spriteCount) {
+                spriteCount = prop.sprites.length;
+            }
         }
         else if (prop.propType === 'customVideo') {
             if (template.video) {
@@ -400,29 +424,51 @@ export async function sceneFromTemplate(
         }
     }
 
+
     // generate blinking patterns
     const prngs: Record<string, Blinker> = {};
+    const id = (customAssets?.length > 0) ? customAssets?.[0].src : 'null';
+    prngs['rain'] = new Blinker(
+        'rain',
+        0.2 * fps, 0.3 * fps,
+        0.2 * fps, 0.3 * fps,
+        seedrandom(`${id}-rain`),
+        3,
+    );
+    prngs['snow'] = new Blinker(
+        'snow',
+        0.8 * fps, 1.6 * fps,
+        0.8 * fps, 1.6 * fps,
+        seedrandom(`${id}-snow`),
+        3,
+    );
     template.heads.forEach(head => {
         if (head.propType === 'image' && head.sprites.length > 1) {
-            const id = (customAssets?.length > 0) ? customAssets?.[0].src : 'null';
-            prngs[head.id] = new Blinker(
-                1.2 * fps, 7 * fps,
-                0.16 * fps, 0.32 * fps,
-                seedrandom(`${id}-${head.id}`)
-            );
+            if (!['rain', 'snow'].includes(head.id)) {
+                // HEAD BLINKER
+                prngs[head.id] = new Blinker(
+                    head.id,
+                    1.2 * fps, 7 * fps,
+                    0.16 * fps, 0.32 * fps,
+                    seedrandom(`${id}-${head.id}`)
+                );
+            }
         }
     });
     template.others.forEach(other => {
         if (other.propType === 'image' && other.sprites.length > 1) {
             if (other.id === 'clock') {
                 prngs[other.id] = new Blinker(
+                    other.id,
                     fps, fps,
                     fps, fps,
                     seedrandom(`${customAssets?.[0].src ?? 'null'}-${other.id}`)
                 );
             }
             else {
+                // TV?
                 prngs[other.id] = new Blinker(
+                    other.id,
                     0.3 * fps, 3 * fps,
                     0.3 * fps, 1.2 * fps,
                     seedrandom(`${customAssets?.[0].src ?? 'null'}-${other.id}`)
@@ -432,7 +478,7 @@ export async function sceneFromTemplate(
     });
 
     // calculate frames
-    const totalFrames = (durationSec !== -Infinity && fps !== 0) ? (durationSec * fps) : 1;
+    const totalFrames = (durationSec !== -Infinity && fps !== 0) ? (durationSec * fps) : spriteCount;
     for (let i = 0; i < totalFrames; i++) {
         const frameTimeSec = i / fps;
         if (currentDatetime && frameTimeSec % 1 === 0) {
@@ -505,18 +551,21 @@ class Blinker {
 
     private state: 'blink' | 'unblink' = 'unblink';
     private nextChangeFrame: number | null = null;
+    private currentSprite: number = 0;
 
     constructor(
+        private id: string,
         private minInterval: number,
         private maxInterval: number,
         private minBlink: number,
         private maxBlink: number,
-        private rng: () => number
+        private rng: () => number,
+        private numSprites: number = 2,
     ) {
         this.scheduleNextBlink(0);
     }
 
-    isBlink(frame: number) {
+    getSprite(frame: number): number {
         if (this.nextChangeFrame === null || frame >= this.nextChangeFrame) {
             // update state
             if (this.state === 'blink') {
@@ -525,9 +574,11 @@ class Blinker {
             else if (this.state === 'unblink') {
                 this.state = 'blink';
             }
+            this.currentSprite = (this.currentSprite + 1) % this.numSprites;
             this.scheduleNextBlink(frame);
         }
-        return this.state === 'blink';
+        // console.log(this.id, frame, this.currentSprite);
+        return this.currentSprite;
     }
 
     scheduleNextBlink(currentFrame: number) {
