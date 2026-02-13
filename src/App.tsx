@@ -82,6 +82,7 @@ function App() {
                         durationSec: data.durationSec,
                         audioSampleRate: data.audioSampleRate,
                         datetime: new Date(data.datetime), // convert ISO string to Date
+                        fps: data.fps,
                     });
                 });
         }

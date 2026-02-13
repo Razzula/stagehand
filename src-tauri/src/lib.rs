@@ -44,6 +44,8 @@ struct Prop {
     width: Option<u32>,
     height: Option<u32>,
     colour: Option<[u8; 3]>,
+
+    disabled: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -81,6 +83,7 @@ struct VideoData {
     durationSec: f64,
     audioSampleRate: u32,
     datetime: String, // ISO string
+    fps: f64,
 }
 
 static TEMP_DIR: Lazy<PathBuf> = Lazy::new(|| {
@@ -431,7 +434,7 @@ fn getVideoData(path: &str) -> Result<VideoData, String> {
             "-select_streams",
             "v:0",
             "-show_entries",
-            "stream=width,height,r_frame_rate,duration",
+            "stream=width,height,avg_frame_rate,r_frame_rate,duration",
             "-show_entries",
             "format_tags=creation_time",
             "-of",
@@ -473,12 +476,26 @@ fn getVideoData(path: &str) -> Result<VideoData, String> {
         .unwrap_or("")
         .to_string();
 
+    let fps_str = stream["avg_frame_rate"]
+    .as_str()
+    .or(stream["r_frame_rate"].as_str())
+    .unwrap_or("0/1");
+    let fps = if let Some((num, den)) = fps_str.split_once('/') {
+        let num: f64 = num.parse().unwrap_or(0.0);
+        let den: f64 = den.parse().unwrap_or(1.0);
+        if den != 0.0 { num / den } else { 0.0 }
+    }
+    else {
+        fps_str.parse::<f64>().unwrap_or(0.0)
+    };
+
     Ok(VideoData {
         width,
         height,
         durationSec,
         audioSampleRate,
         datetime,
+        fps,
     })
 }
 
@@ -510,6 +527,9 @@ async fn diariseAudio() -> Result<String, String> {
 fn loadProps(props: &HashMap<String, Prop>) -> Result<HashMap<String, LoadedProp>, String> {
     let mut loadedProps: HashMap<String, LoadedProp> = HashMap::new();
     for (id, prop) in props.iter() {
+        if prop.disabled == Some(true) {
+            continue;
+        }
         let mut loadedSprites: Vec<RgbaImage> = Vec::new();
         if prop.propType == "image" {
             // load all images as array (spritesheet)
