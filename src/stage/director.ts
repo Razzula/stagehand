@@ -139,9 +139,12 @@ export function scriptFromTemplate(
             const px = origin.x + Math.round(normX * canvasW);
             const py = origin.y + Math.round(normY * canvasH);
 
+            const frameTimeSec = frame / template.meta.fps; // fps
+            const assetFrame = Math.floor(frameTimeSec * customAsset.fps); // XXX
+
             props.push({
                 prop: id,
-                sprite: frame,
+                sprite: assetFrame,
                 x: px,
                 y: py,
                 width: template.video.width,
@@ -284,6 +287,7 @@ export interface CustomVideoAsset {
     durationSec?: number;
     audioSampleRate: number;
     datetime: Date;
+    fps: number;
 }
 
 export async function sceneFromTemplate(
