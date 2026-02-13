@@ -110,6 +110,45 @@ export const testplate: Template = {
             compositeType: 'overlay',
         },
         {
+            id: 'pengwyn-hoodie-clippy',
+            class: 'pengwyn-hoodie',
+            sprites: [
+                '/assets/sprites/pengwyn/hoodie_clippy.png',
+            ],
+            origin: {
+                x: 236,
+                y: 501,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'pengwyn-hoodie-darland',
+            class: 'pengwyn-hoodie',
+            sprites: [
+                '/assets/sprites/pengwyn/hoodie_darland.png',
+            ],
+            origin: {
+                x: 236,
+                y: 501,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'pengwyn-hoodie-cambria',
+            class: 'pengwyn-hoodie',
+            sprites: [
+                '/assets/sprites/pengwyn/hoodie_cambria.png',
+            ],
+            origin: {
+                x: 236,
+                y: 501,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
             id: 'pengwyn-santa',
             class: 'pengwyn-hat',
             sprites: [
@@ -144,6 +183,58 @@ export const testplate: Template = {
             origin: {
                 x: 1379,
                 y: 263,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-gown',
+            class: 'kiwi-gown',
+            sprites: [
+                '/assets/sprites/kiwi/kiwiGown.png',
+            ],
+            origin: {
+                x: 1045,
+                y: 342,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-joeys',
+            class: 'kiwi-gown',
+            sprites: [
+                '/assets/sprites/kiwi/kiwiGown_joeys.png',
+            ],
+            origin: {
+                x: 1045,
+                y: 342,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-suit',
+            class: 'kiwi-gown',
+            sprites: [
+                '/assets/sprites/kiwi/kiwiGown_suit.png',
+            ],
+            origin: {
+                x: 1045,
+                y: 342,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-suit-jngil',
+            class: 'kiwi-gown',
+            sprites: [
+                '/assets/sprites/kiwi/kiwiGown_suit_jack.png',
+            ],
+            origin: {
+                x: 1045,
+                y: 342,
             },
             propType: 'image',
             compositeType: 'overlay',
