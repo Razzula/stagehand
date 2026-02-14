@@ -179,7 +179,7 @@ async fn renderFrame(payload: serde_json::Value) -> Result<String, String> {
         serde_json::from_value(payload).map_err(|e| format!("failed to deserialize: {}", e))?;
 
     // render
-    let frameProp = loadFrame(scene)?;
+    let frameProp = loadFrame(scene, Some(1))?;
 
     // convert the loaded image to base64
     let mut buf = Cursor::new(Vec::new());
@@ -193,16 +193,16 @@ async fn renderFrame(payload: serde_json::Value) -> Result<String, String> {
     Ok(format!("data:image/png;base64,{}", b64))
 }
 
-fn loadFrame(scene: Scene) -> Result<LoadedProp, String> {
+fn loadFrame(scene: Scene, stub: Option<u64>) -> Result<LoadedProp, String> {
     println!("rendering frame of {}", scene.id.clone());
     // 1. load props
-    let mut props = loadProps(&scene.props)?;
+    let mut props = loadProps(&scene.props, stub)?;
     let canvasSize = Arc::new(scene.canvasSize.clone());
 
     // 2. precompute complex assets
     for precompute in scene.precompute.iter() {
         println!("precomputing {}", precompute.id.clone());
-        let loaded = loadFrame(precompute.clone())?;
+        let loaded = loadFrame(precompute.clone(), stub)?;
         props.insert(
             precompute.id.clone(),
             LoadedProp {
@@ -231,7 +231,7 @@ fn loadFrame(scene: Scene) -> Result<LoadedProp, String> {
     // 3. generate frames
     let mut loadedFrames = Vec::new();
     for (i, frameScript) in scene.frames.iter().enumerate() {
-        let bytes = generateFrame(i, frameScript.clone(), props.clone(), canvasSize.clone())?;
+        let bytes = generateFrame(i, frameScript.clone(), props.clone(), canvasSize.clone(),)?;
         let image =
             image::RgbaImage::from_raw(scene.canvasSize.width, scene.canvasSize.height, bytes)
                 .ok_or(format!("invalid canvas size at frame {}", i))?;
@@ -257,13 +257,13 @@ async fn renderVideo(payload: serde_json::Value) -> Result<String, String> {
         serde_json::from_value(payload).map_err(|e| format!("failed to deserialize: {}", e))?;
 
     // 2. load props
-    let mut props = loadProps(&scene.props)?;
+    let mut props = loadProps(&scene.props, None)?;
     let canvasSize = Arc::new(scene.canvasSize.clone());
 
     // 3. precompute complex assets
     for precompute in scene.precompute.iter() {
         println!("precomputing {}", precompute.id.clone());
-        let loaded = loadFrame(precompute.clone())?;
+        let loaded = loadFrame(precompute.clone(), None)?;
         props.insert(
             precompute.id.clone(),
             LoadedProp {
@@ -524,7 +524,7 @@ async fn diariseAudio() -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
-fn loadProps(props: &HashMap<String, Prop>) -> Result<HashMap<String, LoadedProp>, String> {
+fn loadProps(props: &HashMap<String, Prop>, stub: Option<u64>) -> Result<HashMap<String, LoadedProp>, String> {
     let mut loadedProps: HashMap<String, LoadedProp> = HashMap::new();
     for (id, prop) in props.iter() {
         if prop.disabled == Some(true) {
@@ -551,6 +551,7 @@ fn loadProps(props: &HashMap<String, Prop>) -> Result<HashMap<String, LoadedProp
                 &prop.sprites[0],
                 prop.width.unwrap_or(1920),
                 prop.height.unwrap_or(1080),
+                stub,
             )?;
         }
         else if prop.propType == "colour" {
@@ -598,18 +599,19 @@ fn loadProps(props: &HashMap<String, Prop>) -> Result<HashMap<String, LoadedProp
     Ok(loadedProps)
 }
 
-fn loadVideoFrames(path: &str, width: u32, height: u32) -> Result<Vec<RgbaImage>, String> {
+fn loadVideoFrames(
+    path: &str,
+    width: u32,
+    height: u32,
+    stub: Option<u64>,
+) -> Result<Vec<RgbaImage>, String> {
+
     let mut cmd = std::process::Command::new("ffmpeg")
         .args([
-            "-i",
-            path,
-            "-f",
-            "rawvideo",
-            "-pix_fmt",
-            "rgba",
-            "-vf",
-            &format!("scale={}x{}", width, height),
-            // "-r", &fps.to_string(),
+            "-i", path,
+            "-f", "rawvideo",
+            "-pix_fmt", "rgba",
+            "-vf", &format!("scale={}x{}", width, height),
             "-",
         ])
         .stdout(Stdio::piped())
@@ -617,25 +619,30 @@ fn loadVideoFrames(path: &str, width: u32, height: u32) -> Result<Vec<RgbaImage>
         .map_err(|e| format!("failed to spawn ffmpeg: {}", e))?;
 
     let stdout = cmd.stdout.as_mut().ok_or("failed to open ffmpeg stdout")?;
-    let frame_size = (width * height * 4) as usize; // RGBA
-    let mut buffer = Vec::new();
-    stdout
-        .read_to_end(&mut buffer)
-        .map_err(|e| format!("failed to read ffmpeg stdout: {}", e))?;
+    let frameSize = (width * height * 4) as usize;
 
+    let maxFrames = stub.unwrap_or(u64::MAX);
     let mut frames = Vec::new();
-    for chunk in buffer.chunks_exact(frame_size) {
-        let img = RgbaImage::from_raw(width, height, chunk.to_vec())
-            .ok_or("failed to convert chunk to RgbaImage")?;
-        frames.push(img);
+    let mut buf = vec![0u8; frameSize];
+
+    for _ in 0..maxFrames {
+        match stdout.read_exact(&mut buf) {
+            Ok(_) => {
+                let img = RgbaImage::from_raw(width, height, buf.clone())
+                    .ok_or("failed to convert chunk to RgbaImage")?;
+                frames.push(img);
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                break; // no more frames
+            }
+            Err(e) => {
+                return Err(format!("failed to read frame: {}", e));
+            }
+        }
     }
 
-    let status = cmd
-        .wait()
-        .map_err(|e| format!("ffmpeg wait error: {}", e))?;
-    if !status.success() {
-        return Err("ffmpeg exited with error".into());
-    }
+    let _ = cmd.kill(); // stop ffmpeg early if we exited via stub
+    let _ = cmd.wait();
 
     Ok(frames)
 }
