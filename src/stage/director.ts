@@ -60,13 +60,13 @@ export function scriptFromTemplate(
                 }
             }
             if (template.background.propType === 'precomposed') {
-                const rain = template.background.template.heads.find(h => h.id === 'rain');
+                const rain = findPropInTemplate(template.background.template, 'rain');
                 if (rain && !rain.disabled) {
                     // RAIN
                     const blinker = prngs?.[rain.id];
                     prop.sprite = blinker?.getSprite(frame) ?? 0;
                 }
-                const snow = template.background.template.heads.find(h => h.id === 'snow');
+                const snow = findPropInTemplate(template.background.template, 'snow');
                 if (snow && !snow.disabled) {
                     // STARS
                     const blinker = prngs?.[snow.id];
@@ -83,13 +83,6 @@ export function scriptFromTemplate(
             continue;
         }
         const id = head.id;
-
-        if (id === 'pengwyn-gagged') {
-            if (audioSplit?.['pengwyn'] && audioSplit?.['pengwyn']?.length > 0) {
-                // gag not needed
-                continue;
-            }
-        }
 
         const normX = (head.origin.x / canvasW); // XXX
         const normY = (head.origin.y / canvasH); // XXX
@@ -139,8 +132,15 @@ export function scriptFromTemplate(
             const px = origin.x + Math.round(normX * canvasW);
             const py = origin.y + Math.round(normY * canvasH);
 
-            const frameTimeSec = frame / template.meta.fps; // fps
-            const assetFrame = Math.floor(frameTimeSec * customAsset.fps); // XXX
+            const frameTimeSec = frame / template.meta.fps;
+            let assetFrame = Math.floor(frameTimeSec * customAsset.fps);
+            const totalFrames = customAsset.totalFrames;
+            if (customAsset.loop) {
+                assetFrame = assetFrame % totalFrames;
+            }
+            else {
+                assetFrame = Math.min(assetFrame, totalFrames - 1);
+            }
 
             props.push({
                 prop: id,
@@ -288,16 +288,18 @@ export interface CustomVideoAsset {
     audioSampleRate: number;
     datetime: Date;
     fps: number;
+    totalFrames: number,
+    loop?: boolean;
 }
 
 export async function sceneFromTemplate(
     template: Template,
     customAssets: CustomVideoAsset[],
+    audioTrack: string,
     audioData: Float32Array | null,
     audioSplit: Record<string, number[][] | undefined>,
     datetime?: Date,
 ): Promise<Scene> {
-
     const props: Record<string, Prop> = {};
     const precompute: Scene[] = [];
     const frames: Script[] = [];
@@ -347,7 +349,7 @@ export async function sceneFromTemplate(
         else if (prop.propType === 'precomposed') {
             const template = await sceneFromTemplate(
                 prop.template,
-                [], null, {},
+                [], 'null', null, {},
                 currentDatetime,
             );
             precompute.push(template);
@@ -414,6 +416,16 @@ export async function sceneFromTemplate(
         }
     }
 
+    if (audioSplit) {
+        const pengwynGag = findPropInTemplate(template, 'pengwyn-gagged');
+        if (pengwynGag) {
+            if (audioSplit?.['pengwyn'] && audioSplit?.['pengwyn']?.length > 0) {
+                // gag not needed
+                pengwynGag.disabled = true;
+            }
+        }
+    }
+
     // handle audio
     const filteredVolumesPerFrame = [];
     if (customAssets.length > 0) {
@@ -427,7 +439,6 @@ export async function sceneFromTemplate(
             });
         }
     }
-
 
     // generate blinking patterns
     const prngs: Record<string, Blinker> = {};
@@ -482,7 +493,10 @@ export async function sceneFromTemplate(
     });
 
     // calculate frames
-    const totalFrames = (durationSec !== -Infinity && fps !== 0) ? (durationSec * fps) : spriteCount;
+    const childMaxFrames = precompute.reduce((m, s) => Math.max(m, s.frames.length), 0);
+    const totalFrames = (durationSec !== -Infinity && fps !== 0)
+        ? (durationSec * fps)
+        : Math.max(spriteCount, childMaxFrames);
     for (let i = 0; i < totalFrames; i++) {
         const frameTimeSec = i / fps;
         if (currentDatetime && frameTimeSec % 1 === 0) {
@@ -509,7 +523,7 @@ export async function sceneFromTemplate(
             height: frameH ?? template.background.height,
         },
         props,
-        audio: customAssets.length > 0 ? customAssets?.[0].src : 'null',
+        audio: audioTrack ?? 'null',
         precompute,
         frames,
     };
@@ -597,4 +611,15 @@ class Blinker {
     randomBetween(min: number, max: number) {
         return min + this.rng() * (max - min);
     }
+}
+
+function findPropInTemplate(t: Template, id: string): any | undefined {
+    return (
+        t.heads.find(p => p.id === id) ??
+        t.others.find(p => p.id === id) ??
+        t.extra.find(p => p.id === id) ??
+        (t.background?.propType === 'precomposed'
+            ? findPropInTemplate(t.background.template, id)
+            : undefined)
+    );
 }
