@@ -19,8 +19,11 @@ function App() {
     const [props, setProps] = useState<Asset[]>([]);
 
     const [videoName, setVideoName] = useState<string | null>(null);
+    const [overrideVideo, setOverrideVideo] = useState<string | null>(null);
 
     const [videoData, setVideoData] = useState<CustomVideoAsset | null>(null);
+    const [overrideVideoData, setOverrideVideoData] = useState<Partial<CustomVideoAsset> | null>(null);
+
     const [audioData, setAudioData] = useState<Float32Array | null>(null);
     const [imutDiarisation, setImutDiarisation] = useState<Record<string, number[][]>>({});
     const [mutDiarisation, setMutDiarisation] = useState<Record<string, number[][]>>({});
@@ -83,10 +86,29 @@ function App() {
                         audioSampleRate: data.audioSampleRate,
                         datetime: new Date(data.datetime), // convert ISO string to Date
                         fps: data.fps,
+                        totalFrames: Math.floor(data.fps * (data.durationSec ?? 0)),
                     });
                 });
         }
     }, [videoName]);
+
+    useEffect(() => {
+        if (overrideVideo) {
+            const src = `/assets/${overrideVideo}.mp4`;
+            invoke<CustomVideoAsset>('getVideoData', { path: `${STAGEHAND_DIR}/stagehand/public/${src}` })
+                .then(data => {
+                    setOverrideVideoData({
+                        propType: 'customVideo',
+                        src,
+                        height: data.height,
+                        width: data.width,
+                        fps: data.fps,
+                        loop: true,
+                        totalFrames: Math.floor(data.fps * (data.durationSec ?? 0)),
+                    });
+                });
+        }
+    }, [overrideVideo]);
 
     useMemo(() => {
         extractAudio();
@@ -103,7 +125,7 @@ function App() {
         if (videoData) {
             fetchWeather(videoData.datetime).then(wmo => {
                 console.log('weather:', wmo);
-                let newTemplate = {...template};
+                let newTemplate = { ...template };
                 if (wmo === 0) {
                     // sunny
                     enforcePropMutex('null', 'weather', newTemplate);
@@ -144,14 +166,17 @@ function App() {
         if (template && videoData) {
             generatePreviewFrame();
             if (audioData && audioSplit) {
-                sceneFromTemplate(template, [videoData], audioData, audioSplit)
+                const customAsset = (overrideVideo === null)
+                    ? { ...videoData }
+                    : { ...videoData, ...overrideVideoData };
+                sceneFromTemplate(template, [customAsset], videoData.src, audioData, audioSplit)
                     .then(scene => {
                         console.log(scene);
                         setScene(scene);
                     });
             }
         }
-    }, [template, videoData, audioData, audioSplit]);
+    }, [template, videoData, overrideVideo, overrideVideoData, audioData, audioSplit]);
 
     useMemo(() => {
         // convert immutable diarisation to mutable
@@ -184,7 +209,10 @@ function App() {
 
     async function generatePreviewFrame() {
         if (videoData) {
-            const scene = await sceneFromTemplate(template, [videoData], audioData, audioSplit);
+            const customAsset = (overrideVideo === null)
+                ? { ...videoData }
+                : { ...videoData, ...overrideVideoData };
+            const scene = await sceneFromTemplate(template, [customAsset], videoData.src, audioData, audioSplit);
             const singleFrameScene: Scene = { ...scene, frames: [scene.frames[0]] };
             const render = await invoke('renderFrame', { payload: singleFrameScene });
             setFrames([render as string]);
@@ -314,8 +342,8 @@ function App() {
             // If this is the target asset
             if (asset.id === propID) {
                 const newValue = (value === undefined)
-                ? (asset.disabled === undefined ? true: !asset.disabled) // toggle
-                : !value;
+                    ? (asset.disabled === undefined ? true : !asset.disabled) // toggle
+                    : !value;
                 const updated = {
                     ...asset,
                     disabled: newValue,
@@ -409,6 +437,23 @@ function App() {
                         >
                             {videoName ? 'Change' : 'Select'} Clip
                         </button>
+
+                        <label>
+                            <input
+                                type="checkbox"
+                                checked={overrideVideo === 'fireplace'}
+                                onChange={() => setOverrideVideo(prev => prev !== 'fireplace' ? 'fireplace' : null)}
+                            />
+                            use fireplace as video
+                        </label>
+                        <label>
+                            <input
+                                type="checkbox"
+                                checked={overrideVideo === 'static'}
+                                onChange={() => setOverrideVideo(prev => prev !== 'static' ? 'static' : null)}
+                            />
+                            use static as video
+                        </label>
                     </div>
 
                     <div className='section'>

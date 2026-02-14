@@ -5,7 +5,7 @@
     "type": "module",
     "scripts": {
         "dev:vite": "vite",
-        "dev": "bun run tauri dev",
+        "dev": "RUST_BACKTRACE=1 RUST_LOG=debug bunx tauri dev",
         "build:vite": "tsc && vite build",
         "build": "bun run tauri build"
     },

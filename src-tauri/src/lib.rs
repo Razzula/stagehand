@@ -114,7 +114,7 @@ pub fn run() {
 }
 
 fn generateFrame(
-    _frame: usize,
+    frame: usize,
     script: Script,
     props: Arc<HashMap<String, LoadedProp>>,
     canvasSize: Arc<CanvasSize>,
@@ -167,7 +167,7 @@ fn generateFrame(
     }
 
     // 4. return data
-    println!("Total frame generation: {:?}", startTotal.elapsed());
+    println!("Frame {}: {:?}", frame, startTotal.elapsed());
     Ok(canvas.into_raw())
 }
 

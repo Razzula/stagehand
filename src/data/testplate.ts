@@ -1,10 +1,10 @@
 import { Template } from "../stage/Template";
 import { background } from "./background";
 
-export const testplate: Template = {
-    id: 'testplate',
+export const statics: Template = {
+    id: 'testplate-statics',
     meta: {
-        fps: 30,
+        fps: 0,
         width: 1920,
         height: 1080,
     },
@@ -19,34 +19,6 @@ export const testplate: Template = {
     },
     heads: [
         {
-            id: 'pengwyn-eyes',
-            class: 'pengwyn-eyes',
-            sprites: [
-                '/assets/sprites/pengwyn/pengwyneyes.png',
-                '/assets/sprites/pengwyn/pengwyneyes_blink.png',
-            ],
-            origin: {
-                x: 294,
-                y: 443,
-            },
-            propType: 'image',
-            compositeType: 'paste',
-        },
-        {
-            id: 'pengwyn-eyes-cry',
-            class: 'pengwyn-eyes',
-            sprites: [
-                '/assets/sprites/pengwyn/pengwyneyes_cry.png',
-                '/assets/sprites/pengwyn/pengwyneyes_cry_blink.png',
-            ],
-            origin: {
-                x: 294,
-                y: 443,
-            },
-            propType: 'image',
-            compositeType: 'paste',
-        },
-        {
             id: 'pengwyn-gagged',
             sprites: [
                 '/assets/sprites/pengwyn/pengwyn_gag.png',
@@ -54,18 +26,6 @@ export const testplate: Template = {
             origin: {
                 x: 247,
                 y: 494,
-            },
-            propType: 'image',
-            compositeType: 'overlay',
-        },
-        {
-            id: 'pengwyn',
-            sprites: [
-                '/assets/sprites/pengwyn/pengwynbeak.png',
-            ],
-            origin: {
-                x: 307,
-                y: 470,
             },
             propType: 'image',
             compositeType: 'overlay',
@@ -163,31 +123,6 @@ export const testplate: Template = {
             disabled: true,
         },
         {
-            id: 'kiwi-eyes',
-            sprites: [
-                '/assets/sprites/kiwi/kiwieyes.png',
-                '/assets/sprites/kiwi/kiwieyes_blink.png',
-            ],
-            origin: {
-                x: 1518,
-                y: 232,
-            },
-            propType: 'image',
-            compositeType: 'overlay',
-        },
-        {
-            id: 'kiwi',
-            sprites: [
-                '/assets/sprites/kiwi/kiwibeak.png',
-            ],
-            origin: {
-                x: 1379,
-                y: 263,
-            },
-            propType: 'image',
-            compositeType: 'overlay',
-        },
-        {
             id: 'kiwi-gown',
             class: 'kiwi-gown',
             sprites: [
@@ -254,57 +189,7 @@ export const testplate: Template = {
             disabled: true,
         },
     ],
-    video: {
-        id: 'sample',
-        width: 487,
-        height: 274,
-        origin: {
-            x: 693,
-            y: 317,
-        },
-        paths: {},
-        propType: 'video',
-        compositeType: 'paste',
-    },
     others: [
-        {
-            id: 'clock',
-            sprites: [
-                '/assets/sprites/clock/clock_blank.png',
-                '/assets/sprites/clock/clock_blink.png',
-            ],
-            origin: {
-                x: 718,
-                y: 23,
-            },
-            propType: 'image',
-            compositeType: 'overlay',
-        },
-        {
-            id: 'calander',
-            sprites: [
-                '/assets/sprites/calander/calander.png',
-            ],
-            origin: {
-                x: 996,
-                y: 0,
-            },
-            propType: 'image',
-            compositeType: 'overlay',
-        },
-        {
-            id: 'telly',
-            sprites: [
-                '/assets/sprites/telly.png',
-                '/assets/sprites/telly_blink.png',
-            ],
-            origin: {
-                x: 651,
-                y: 121,
-            },
-            propType: 'image',
-            compositeType: 'overlay',
-        },
         {
             id: 'razz-tea',
             class: 'razz-held-right',
@@ -367,45 +252,6 @@ export const testplate: Template = {
             origin: {
                 x: 368,
                 y: 604,
-            },
-            propType: 'image',
-            compositeType: 'overlay',
-        },
-        {
-            id: 'kiwi-treaty',
-            class: 'kiwi-held-right',
-            sprites: [
-                '/assets/sprites/kiwi/kiwiTreaty.png',
-            ],
-            origin: {
-                x: 1176,
-                y: 442,
-            },
-            propType: 'image',
-            compositeType: 'overlay',
-        },
-        {
-            id: 'kiwi-newspaper',
-            class: 'kiwi-held-right',
-            sprites: [
-                '/assets/sprites/kiwi/kiwiNewspaper.png',
-            ],
-            origin: {
-                x: 1225,
-                y: 469,
-            },
-            propType: 'image',
-            compositeType: 'overlay',
-        },
-        {
-            id: 'kiwi-scroll',
-            class: 'kiwi-held-right',
-            sprites: [
-                '/assets/sprites/kiwi/kiwiScroll.png',
-            ],
-            origin: {
-                x: 1192,
-                y: 457,
             },
             propType: 'image',
             compositeType: 'overlay',
@@ -497,6 +343,183 @@ export const testplate: Template = {
             origin: {
                 x: 1493,
                 y: 659,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+    ],
+    extra: [],
+}
+
+export const testplate: Template = {
+    id: 'testplate',
+    meta: {
+        fps: 30,
+        width: 1920,
+        height: 1080,
+    },
+    background: {
+        id: 'testplate-statics',
+        propType: 'precomposed',
+        compositeType: 'paste',
+        template: statics,
+        width: 1920,
+        height: 1080,
+        origin: { x: 0, y: 0, },
+    },
+    heads: [
+        {
+            id: 'pengwyn-eyes',
+            class: 'pengwyn-eyes',
+            sprites: [
+                '/assets/sprites/pengwyn/pengwyneyes.png',
+                '/assets/sprites/pengwyn/pengwyneyes_blink.png',
+            ],
+            origin: {
+                x: 294,
+                y: 443,
+            },
+            propType: 'image',
+            compositeType: 'paste',
+        },
+        {
+            id: 'pengwyn-eyes-cry',
+            class: 'pengwyn-eyes',
+            sprites: [
+                '/assets/sprites/pengwyn/pengwyneyes_cry.png',
+                '/assets/sprites/pengwyn/pengwyneyes_cry_blink.png',
+            ],
+            origin: {
+                x: 294,
+                y: 443,
+            },
+            propType: 'image',
+            compositeType: 'paste',
+        },
+        {
+            id: 'pengwyn',
+            sprites: [
+                '/assets/sprites/pengwyn/pengwynbeak.png',
+            ],
+            origin: {
+                x: 307,
+                y: 470,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-eyes',
+            sprites: [
+                '/assets/sprites/kiwi/kiwieyes.png',
+                '/assets/sprites/kiwi/kiwieyes_blink.png',
+            ],
+            origin: {
+                x: 1518,
+                y: 232,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi',
+            sprites: [
+                '/assets/sprites/kiwi/kiwibeak.png',
+            ],
+            origin: {
+                x: 1379,
+                y: 263,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+    ],
+    video: {
+        id: 'sample',
+        width: 487,
+        height: 274,
+        origin: {
+            x: 693,
+            y: 317,
+        },
+        paths: {},
+        propType: 'video',
+        compositeType: 'paste',
+    },
+    others: [
+        {
+            id: 'clock',
+            sprites: [
+                '/assets/sprites/clock/clock_blank.png',
+                '/assets/sprites/clock/clock_blink.png',
+            ],
+            origin: {
+                x: 718,
+                y: 23,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'calander',
+            sprites: [
+                '/assets/sprites/calander/calander.png',
+            ],
+            origin: {
+                x: 996,
+                y: 0,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'telly',
+            sprites: [
+                '/assets/sprites/telly.png',
+                '/assets/sprites/telly_blink.png',
+            ],
+            origin: {
+                x: 651,
+                y: 121,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-treaty',
+            class: 'kiwi-held-right',
+            sprites: [
+                '/assets/sprites/kiwi/kiwiTreaty.png',
+            ],
+            origin: {
+                x: 1176,
+                y: 442,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-scroll',
+            class: 'kiwi-held-right',
+            sprites: [
+                '/assets/sprites/kiwi/kiwiScroll.png',
+            ],
+            origin: {
+                x: 1192,
+                y: 457,
+            },
+            propType: 'image',
+            compositeType: 'overlay',
+        },
+        {
+            id: 'kiwi-newspaper',
+            class: 'kiwi-held-right',
+            sprites: [
+                '/assets/sprites/kiwi/kiwiNewspaper.png',
+            ],
+            origin: {
+                x: 1225,
+                y: 469,
             },
             propType: 'image',
             compositeType: 'overlay',
