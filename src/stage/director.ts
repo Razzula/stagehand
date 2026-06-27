@@ -4,8 +4,7 @@ import { calculateMoonPhase } from '../data/background';
 
 import { Template } from './Template';
 import { Prop, Scene, Script, StageDirection } from './stage';
-
-const STAGEHAND_DIR = '/media/razzula/media2/Programming/Web/';
+import { STAGEHAND_DIR } from '../App';
 
 export function scriptFromTemplate(
     template: Template,
@@ -325,7 +324,7 @@ export async function sceneFromTemplate(
         if (prop.propType === 'image') {
             props[prop.id] = {
                 id: prop.id,
-                sprites: prop.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
+                sprites: prop.sprites.map(spritePath => `${STAGEHAND_DIR}/public/${spritePath}`),
                 propType: prop.propType,
                 compositeType: prop.compositeType,
             };
@@ -337,7 +336,7 @@ export async function sceneFromTemplate(
             if (template.video) {
                 props[prop.id] = {
                     id: prop.id,
-                    sprites: [`${STAGEHAND_DIR}/stagehand/public/${prop.src}`],
+                    sprites: [`${STAGEHAND_DIR}/public/${prop.src}`],
                     propType: template.video.propType,
                     compositeType: template.video.compositeType,
 
@@ -378,7 +377,7 @@ export async function sceneFromTemplate(
             if (digitTemplate?.propType === 'image') {
                 props[digitTemplate.id] = {
                     id: digitTemplate.id,
-                    sprites: digitTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
+                    sprites: digitTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/public/${spritePath}`),
                     propType: digitTemplate.propType,
                     compositeType: digitTemplate.compositeType,
                 }
@@ -390,7 +389,7 @@ export async function sceneFromTemplate(
             if (dayTemplate?.propType === 'image') {
                 props[dayTemplate.id] = {
                     id: dayTemplate.id,
-                    sprites: dayTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
+                    sprites: dayTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/public/${spritePath}`),
                     propType: dayTemplate.propType,
                     compositeType: dayTemplate.compositeType,
                 }
@@ -399,7 +398,7 @@ export async function sceneFromTemplate(
             if (monthTemplate?.propType === 'image') {
                 props[monthTemplate.id] = {
                     id: monthTemplate.id,
-                    sprites: monthTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
+                    sprites: monthTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/public/${spritePath}`),
                     propType: monthTemplate.propType,
                     compositeType: monthTemplate.compositeType,
                 }
@@ -408,7 +407,7 @@ export async function sceneFromTemplate(
             if (yearTemplate?.propType === 'image') {
                 props[yearTemplate.id] = {
                     id: yearTemplate.id,
-                    sprites: yearTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/stagehand/public/${spritePath}`),
+                    sprites: yearTemplate.sprites.map(spritePath => `${STAGEHAND_DIR}/public/${spritePath}`),
                     propType: yearTemplate.propType,
                     compositeType: yearTemplate.compositeType,
                 }
@@ -436,6 +435,14 @@ export async function sceneFromTemplate(
             filteredVolumesPerFrame.push({
                 'kiwi': isWithinBounds(audioSplit['kiwi'], i, fps) ? volumesPerFrame[i] : 0,
                 'pengwyn': isWithinBounds(audioSplit['pengwyn'], i, fps) ? (volumesPerFrame[i] * 1.2) : 0,
+
+                'dm': isWithinBounds(audioSplit['dm'], i, fps) ? (volumesPerFrame[i] * 5) : 0,
+                'boose': isWithinBounds(audioSplit['boose'], i, fps) ? volumesPerFrame[i] : 0,
+                'meFrend': isWithinBounds(audioSplit['meFrend'], i, fps) ? volumesPerFrame[i] : 0,
+                'bambismum': isWithinBounds(audioSplit['bambismum'], i, fps) ? volumesPerFrame[i] : 0,
+                'red': isWithinBounds(audioSplit['red'], i, fps) ? volumesPerFrame[i] : 0,
+                'elJerbino': isWithinBounds(audioSplit['elJerbino'], i, fps) ? volumesPerFrame[i] : 0,
+                'badger': isWithinBounds(audioSplit['badger'], i, fps) ? volumesPerFrame[i] : 0,
             });
         }
     }

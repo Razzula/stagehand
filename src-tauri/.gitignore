@@ -7,3 +7,5 @@
 /gen/schemas
 
 /src-py/.venv
+/src-py/.transcribe
+/src-py/.diarise

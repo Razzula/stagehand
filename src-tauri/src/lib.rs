@@ -94,8 +94,15 @@ static TEMP_DIR: Lazy<PathBuf> = Lazy::new(|| {
 });
 
 static PROJECT_DIR: Lazy<String> = Lazy::new(|| {
+    println!("Current working directory: {:?}", std::env::current_dir().unwrap());
     dotenv().ok(); // loads .env in repo root
     env::var("VITE_STAGEHAND_ROOT").expect("VITE_STAGEHAND_ROOT must be set")
+});
+
+static HF_TOKEN: Lazy<String> = Lazy::new(|| {
+    println!("Current working directory: {:?}", std::env::current_dir().unwrap());
+    dotenv().ok(); // loads .env in repo root
+    env::var("HF_TOKEN").expect("HF_TOKEN must be set")
 });
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -106,7 +113,7 @@ pub fn run() {
             renderFrame,
             renderVideo,
             extractAudio,
-            diariseAudio,
+            analyseAudio,
             getVideoData,
         ])
         .run(tauri::generate_context!())
@@ -278,24 +285,8 @@ async fn renderVideo(payload: serde_json::Value) -> Result<String, String> {
     }
     let props = Arc::new(props);
 
-    // 4. generate frames
-    let mut frames: Vec<Vec<u8>> = Vec::new();
-    for (i, frame) in scene.frames.iter().enumerate() {
-        let frame = generateFrame(
-            i,
-            frame.clone(),
-            // cloning Arc does not clone underlying data
-            props.clone(),
-            canvasSize.clone(),
-        )?;
-        frames.push(frame);
-        println!("generated frame {}/{}", frames.len(), scene.frames.len());
-    }
-
-    // let outputFile = TEMP_DIR.join("output.mp4"); // XXX
+    // 4. spin up ffmpeg
     let outputFile = format!("{}/bin/{}.mp4", *PROJECT_DIR, scene.id);
-
-    // 5. encode video (ffmpeg)
     let mut ffmpeg = std::process::Command::new("ffmpeg")
         .args([
             "-y",
@@ -330,14 +321,23 @@ async fn renderVideo(payload: serde_json::Value) -> Result<String, String> {
         .spawn()
         .map_err(|e| format!("ffmpeg failed: {}", e))?;
 
-    // stream each frame's PNG bytes to ffmpeg stdin
-    {
-        let stdin = ffmpeg.stdin.as_mut().ok_or("failed to open ffmpeg stdin")?;
-        for frameBytes in frames {
-            stdin
-                .write(&frameBytes)
-                .map_err(|e| format!("failed to write to ffmpeg stdin: {}", e))?;
-        }
+    // 5. generate frames
+    let stdin = ffmpeg.stdin.as_mut().ok_or("failed to open ffmpeg stdin")?;
+    for (i, frame) in scene.frames.iter().enumerate() {
+        let frameBytes = generateFrame(
+            i,
+            frame.clone(),
+            // cloning Arc does not clone underlying data
+            props.clone(),
+            canvasSize.clone(),
+        )?;
+
+        // encode video
+        stdin
+            .write_all(&frameBytes)
+            .map_err(|e| format!("failed to write to ffmpeg stdin: {}", e))?;
+
+        println!("generated frame {}/{}", i, scene.frames.len());
     }
 
     let status = ffmpeg
@@ -500,28 +500,66 @@ fn getVideoData(path: &str) -> Result<VideoData, String> {
 }
 
 #[tauri::command]
-async fn diariseAudio() -> Result<String, String> {
-    println!("diariseAudio() called");
+async fn analyseAudio(
+    numSpeakers: Option<u32>,
+    language: Option<String>,
+) -> Result<String, String> {
+    println!("analyseAudio() called");
 
-    dotenv().ok();
-    let hfToken = env::var("HF_TOKEN").map_err(|_| "HF_TOKEN must be set".to_string())?;
+    let audio = TEMP_DIR.join("audio.wav");
 
-    let output = std::process::Command::new("./src-py/.venv/bin/python3")
-        .arg("src-py/test.py")
-        .arg(&hfToken)
-        .arg(TEMP_DIR.join("audio.wav")) // XXX
+    println!("diarise.py called");
+    let mut diarise = std::process::Command::new("./src-py/.diarise/bin/python3");
+    diarise
+        .arg("src-py/diarise.py")
+        .arg(&audio)
+        .arg(&*HF_TOKEN);
+    if let Some(n) = numSpeakers {
+        diarise.arg(n.to_string());
+    }
+    let diarisation = diarise
         .output()
-        .map_err(|e| format!("Failed to spawn python: {}", e))?;
-
-    if !output.status.success() {
+        .map_err(|e| format!("Failed to spawn diarise.py: {e}"))?;
+    if !diarisation.status.success() {
         return Err(format!(
-            "Python script failed: {}",
-            String::from_utf8_lossy(&output.stderr)
+            "diarise.py failed:\n{}",
+            String::from_utf8_lossy(&diarisation.stderr)
         ));
     }
 
-    println!("Audio diarised");
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    println!("diarise stdout:\n{}", String::from_utf8_lossy(&diarisation.stdout));
+    println!("diarise stderr:\n{}", String::from_utf8_lossy(&diarisation.stderr));
+    let speakers: serde_json::Value = serde_json::from_slice(&diarisation.stdout)
+        .map_err(|e| format!("Invalid diarise JSON: {e}"))?;
+
+    println!("transcribe.py called");
+    let mut transcribe = std::process::Command::new("./src-py/.transcribe/bin/python3");
+    transcribe
+        .arg("src-py/transcribe.py")
+        .arg(&audio);
+    if let Some(lang) = language {
+        transcribe.arg(lang);
+    }
+    let transcript = transcribe
+        .output()
+        .map_err(|e| format!("Failed to spawn transcribe.py: {e}"))?;
+    if !transcript.status.success() {
+        return Err(format!(
+            "transcribe.py failed:\n{}",
+            String::from_utf8_lossy(&transcript.stderr)
+        ));
+    }
+
+    println!("transcribe stdout:\n{}", String::from_utf8_lossy(&transcript.stdout));
+    println!("transcribe stderr:\n{}", String::from_utf8_lossy(&transcript.stderr));
+    let script: serde_json::Value = serde_json::from_slice(&transcript.stdout)
+        .map_err(|e| format!("Invalid transcription JSON: {e}"))?;
+
+    Ok(serde_json::json!({
+        "speakers": speakers,
+        "script": script,
+    })
+    .to_string())
 }
 
 fn loadProps(props: &HashMap<String, Prop>, stub: Option<u64>) -> Result<HashMap<String, LoadedProp>, String> {

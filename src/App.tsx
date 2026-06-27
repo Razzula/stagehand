@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 
 import { sceneFromTemplate, CustomVideoAsset } from './stage/director';
 import { testplate } from './data/testplate';
+import { humbleplate } from './data/humbleplate';
 import { Scene } from './stage/stage';
 
 import './App.scss';
@@ -10,12 +11,24 @@ import { Asset, Template } from './stage/Template';
 import { Tooltip, TooltipContent, TooltipTrigger } from './common/Tooltip';
 import { fetchWeather } from './data/background';
 
-const STAGEHAND_DIR = '/media/razzula/media2/Programming/Web/';
+export const STAGEHAND_DIR = import.meta.env.VITE_STAGEHAND_ROOT;
+const TEMPLATE_TO_USE = humbleplate ?? testplate;
+
+const SPEAKERS = [
+    // 'kiwi', 'pengwyn',
+    'dm', 'boose', 'mrFrend', 'bambismum', 'red', 'elJerbino', 'badger',
+    'none',
+]
+
+const initialSpeakerMap = SPEAKERS.reduce((acc, speaker) => {
+    acc[speaker] = 'null';
+    return acc;
+}, {} as Record<string, string>);
 
 function App() {
 
-    const [trueTemplate, _setTrueTemplate] = useState<Template>(testplate);
-    const [template, setTemplate] = useState<Template>(testplate);
+    const [trueTemplate, _setTrueTemplate] = useState<Template>(TEMPLATE_TO_USE);
+    const [template, setTemplate] = useState<Template>(TEMPLATE_TO_USE);
     const [props, setProps] = useState<Asset[]>([]);
 
     const [videoName, setVideoName] = useState<string | null>(null);
@@ -29,11 +42,7 @@ function App() {
     const [mutDiarisation, setMutDiarisation] = useState<Record<string, number[][]>>({});
     const [audioSplit, setAudioSplit] = useState<Record<string, number[][] | undefined>>({});
 
-    const [speakerMap, setSpeakerMap] = useState<Record<string, string>>({
-        'kiwi': 'null',
-        'pengwyn': 'null',
-        'none': 'null',
-    });
+    const [speakerMap, setSpeakerMap] = useState<Record<string, string>>({...initialSpeakerMap});
 
     const [scene, setScene] = useState<Scene | null>(null);
 
@@ -43,7 +52,7 @@ function App() {
     const [tick, setTick] = useState<number>(0);
 
     const isDiarisingRef = useRef(false);
-    const lastDiarisationRef = useRef<string | null>(null);
+    const lastAudioAnalysisRef = useRef<string | null>(null);
 
     const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -74,7 +83,7 @@ function App() {
     useEffect(() => {
         if (videoName) {
             const src = `/assets/${videoName}.mp4`;
-            invoke<CustomVideoAsset>('getVideoData', { path: `${STAGEHAND_DIR}/stagehand/public/${src}` })
+            invoke<CustomVideoAsset>('getVideoData', { path: `${STAGEHAND_DIR}/public/${src}` })
                 .then(data => {
                     setVideoData({
                         propType: 'customVideo',
@@ -95,7 +104,7 @@ function App() {
     useEffect(() => {
         if (overrideVideo) {
             const src = `/assets/${overrideVideo}.mp4`;
-            invoke<CustomVideoAsset>('getVideoData', { path: `${STAGEHAND_DIR}/stagehand/public/${src}` })
+            invoke<CustomVideoAsset>('getVideoData', { path: `${STAGEHAND_DIR}/public/${src}` })
                 .then(data => {
                     setOverrideVideoData({
                         propType: 'customVideo',
@@ -115,12 +124,7 @@ function App() {
         setImutDiarisation({});
         setMutDiarisation({});
         setRendered(false);
-        setSpeakerMap({
-            // empty values for default
-            'kiwi': 'null',
-            'pengwyn': 'null',
-            'none': 'null',
-        });
+        setSpeakerMap({...initialSpeakerMap});
 
         if (videoData) {
             fetchWeather(videoData.datetime).then(wmo => {
@@ -150,16 +154,17 @@ function App() {
 
     useMemo(() => {
         if (audioData) {
-            diariseAudio();
+            analyseAudio();
         }
     }, [audioData]);
 
     useMemo(() => {
         const filterEnabled = (spans?: number[][]) => spans?.filter(([a]) => a >= 0);
-        setAudioSplit({
-            'kiwi': filterEnabled(mutDiarisation?.[speakerMap?.['kiwi']]),
-            'pengwyn': filterEnabled(mutDiarisation?.[speakerMap?.['pengwyn']]),
-        });
+        const newAudioSplit = Object.keys(speakerMap).reduce((acc, character) => {
+            acc[character] = filterEnabled(mutDiarisation?.[speakerMap[character]]);
+            return acc;
+        }, {} as Record<string, number[][] | undefined>);
+        setAudioSplit(newAudioSplit);
     }, [mutDiarisation, speakerMap]);
 
     useMemo(() => {
@@ -222,7 +227,7 @@ function App() {
     async function extractAudio() {
         if (videoData) {
             const floatSamples = await invoke('extractAudio', {
-                videoPath: `${STAGEHAND_DIR}/stagehand/public/${videoData.src}`,
+                videoPath: `${STAGEHAND_DIR}/public/${videoData.src}`,
                 audioSampleRate: videoData.audioSampleRate,
             }) as Float32Array;
             if (floatSamples !== audioData) {
@@ -231,17 +236,23 @@ function App() {
         }
     }
 
-    async function diariseAudio() {
+    async function analyseAudio() {
         if (isDiarisingRef.current) {
             return;
         }
         isDiarisingRef.current = true;
 
         try {
-            const diarisation = await invoke('diariseAudio') as string;
-            if (diarisation !== lastDiarisationRef.current) {
-                lastDiarisationRef.current = diarisation;
-                setImutDiarisation(JSON.parse(diarisation));
+            const raw = await invoke('analyseAudio', {
+                'language': 'en',
+                // 'numSpeakers': 5, // XXX
+            }) as string;
+            console.log(raw);
+            const analysis = JSON.parse(raw);
+            console.log(analysis);
+            if (raw !== lastAudioAnalysisRef.current) {
+                lastAudioAnalysisRef.current = raw;
+                setImutDiarisation(analysis.speakers);
             }
         }
         catch (e) {
