@@ -145,6 +145,59 @@ body {
     }
 }
 
+.transcript {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    line-height: 1.8;
+}
+
+.word {
+    padding: 2px 4px;
+}
+
+.word:hover {
+    cursor: pointer;
+}
+
+.word.multiSpeaker {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+}
+
+.speakerPicker {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 140px;
+}
+
+.speakerOption {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.speakerOption:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.check {
+    margin-left: auto;
+    color: #4ade80;
+    font-weight: bold;
+}
+
+.colourBox {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+
 select {
     background-color: $card-bg;
     border: 1px solid $border-colour;

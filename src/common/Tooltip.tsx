@@ -1,5 +1,5 @@
 import React from 'react';
-import { FloatingPortal, autoUpdate, flip, offset, shift, useDismiss, useFloating, useHover, useInteractions, useMergeRefs, useRole } from '@floating-ui/react';
+import { FloatingPortal, autoUpdate, flip, offset, shift, useClick, useDismiss, useFloating, useHover, useInteractions, useMergeRefs, useRole } from '@floating-ui/react';
 import type { Placement } from '@floating-ui/core';
 
 import './Tooltip.css';
@@ -9,19 +9,34 @@ interface TooltipOptions {
     placement?: Placement;
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
+    enableHover?: boolean;
+    enableClick?: boolean;
+    restMs?: number;
 }
 
-export function useTooltip({
+function useTooltip({
     initialOpen = false,
     placement = 'top',
     open: controlledOpen,
-    onOpenChange: setControlledOpen
+    onOpenChange: setControlledOpen,
+    enableHover = true,
+    enableClick = false,
+    restMs = 1,
 }: TooltipOptions = {}) {
 
     const [uncontrolledOpen, setUncontrolledOpen] = React.useState(initialOpen);
+    const [trigger, setTrigger] = React.useState<'hover' | 'click' | null>(null);
 
     const open = controlledOpen ?? uncontrolledOpen;
-    const setOpen = setControlledOpen ?? setUncontrolledOpen;
+    const setOpen = (isOpen: boolean, event?: Event) => {
+        setControlledOpen ? setControlledOpen(isOpen) : setUncontrolledOpen(isOpen);
+        if (isOpen) {
+            setTrigger(event?.type === 'click' ? 'click' : 'hover');
+        }
+        else {
+            setTrigger(null);
+        }
+    };
 
     const data = useFloating({
         placement,
@@ -39,20 +54,26 @@ export function useTooltip({
         ]
     });
 
-    const hover = useHover(data.context, {
-        move: false,
-        enabled: controlledOpen == null,
-        mouseOnly: true,
-    });
     const dismiss = useDismiss(data.context);
     const role = useRole(data.context, { role: 'tooltip' });
 
-    const interactions = useInteractions([hover, dismiss, role]);
+    const click = useClick(data.context, {
+        event: 'click',
+        enabled: enableClick,
+    });
+    const hover = useHover(data.context, {
+        move: false,
+        enabled: enableHover,
+        restMs: restMs,
+    });
+
+    const interactions = useInteractions([dismiss, role, click, hover]);
 
     return React.useMemo(
         () => ({
             open,
             setOpen,
+            trigger,
             ...interactions,
             ...data
         }),

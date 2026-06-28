@@ -10,6 +10,7 @@ import './App.scss';
 import { Asset, Template } from './stage/Template';
 import { Tooltip, TooltipContent, TooltipTrigger } from './common/Tooltip';
 import { fetchWeather } from './data/background';
+import { addSpan, overlap, removeSpan, Span, toggleSpan } from './utils';
 
 export const STAGEHAND_DIR = import.meta.env.VITE_STAGEHAND_ROOT;
 const TEMPLATE_TO_USE = humbleplate ?? testplate;
@@ -38,11 +39,12 @@ function App() {
     const [overrideVideoData, setOverrideVideoData] = useState<Partial<CustomVideoAsset> | null>(null);
 
     const [audioData, setAudioData] = useState<Float32Array | null>(null);
-    const [imutDiarisation, setImutDiarisation] = useState<Record<string, number[][]>>({});
-    const [mutDiarisation, setMutDiarisation] = useState<Record<string, number[][]>>({});
-    const [audioSplit, setAudioSplit] = useState<Record<string, number[][] | undefined>>({});
+    const [imutDiarisation, setImutDiarisation] = useState<Record<string, Span[]>>({});
+    const [mutDiarisation, setMutDiarisation] = useState<Record<string, Span[]>>({});
+    const [transcript, setTranscript] = useState<{ start: number, end: number, word: string }[]>([]);
+    const [audioSplit, setAudioSplit] = useState<Record<string, Span[] | undefined>>({});
 
-    const [speakerMap, setSpeakerMap] = useState<Record<string, string>>({...initialSpeakerMap});
+    const [speakerMap, setSpeakerMap] = useState<Record<string, string>>({ ...initialSpeakerMap });
 
     const [scene, setScene] = useState<Scene | null>(null);
 
@@ -123,8 +125,9 @@ function App() {
         extractAudio();
         setImutDiarisation({});
         setMutDiarisation({});
+        setTranscript([]);
         setRendered(false);
-        setSpeakerMap({...initialSpeakerMap});
+        setSpeakerMap({ ...initialSpeakerMap });
 
         if (videoData) {
             fetchWeather(videoData.datetime).then(wmo => {
@@ -159,11 +162,11 @@ function App() {
     }, [audioData]);
 
     useMemo(() => {
-        const filterEnabled = (spans?: number[][]) => spans?.filter(([a]) => a >= 0);
+        const filterEnabled = (spans?: Span[]) => spans?.filter((span) => span.start >= 0);
         const newAudioSplit = Object.keys(speakerMap).reduce((acc, character) => {
             acc[character] = filterEnabled(mutDiarisation?.[speakerMap[character]]);
             return acc;
-        }, {} as Record<string, number[][] | undefined>);
+        }, {} as Record<string, Span[] | undefined>);
         setAudioSplit(newAudioSplit);
     }, [mutDiarisation, speakerMap]);
 
@@ -187,6 +190,19 @@ function App() {
         // convert immutable diarisation to mutable
         setMutDiarisation({ ...imutDiarisation });
     }, [imutDiarisation]);
+
+    const speakerColours = useMemo(() => {
+        const entries = Object.keys(mutDiarisation);
+
+        const palette = [
+            '#ef4444', '#3b82f6', '#10b981',
+            '#f59e0b', '#a855f7', '#06b6d4'
+        ];
+
+        return Object.fromEntries(
+            entries.map((s, i) => [s, palette[i % palette.length]])
+        );
+    }, [mutDiarisation]);
 
     function getProps(template: Template): Asset[] {
         const collected: Asset[] = [];
@@ -253,10 +269,11 @@ function App() {
             if (raw !== lastAudioAnalysisRef.current) {
                 lastAudioAnalysisRef.current = raw;
                 setImutDiarisation(analysis.speakers);
+                setTranscript(analysis.script);
             }
         }
         catch (e) {
-            console.error('Diarisation failed', e);
+            console.error('Audio analysis failed', e);
         }
         finally {
             // small delay to avoid immediate re-trigger from file churn
@@ -297,7 +314,7 @@ function App() {
         });
     }
 
-    function addSpan(speaker: string) {
+    function handleAddSpan(speaker: string) {
         const start = prompt('Span start (seconds)');
         const end = prompt('Span end (seconds)');
         if (start === null || end === null) {
@@ -310,27 +327,15 @@ function App() {
             return;
         }
 
-        setMutDiarisation(prev => {
-            const next = { ...prev };
-            next[speaker] = [...(next[speaker] ?? []), [a, b]];
-            return next;
-        });
+        setMutDiarisation(prev =>
+            addSpan(prev, speaker, { start: a, end: b })
+        );
     }
 
-    function toggleSpan(speaker: string, index: number) {
-        setMutDiarisation(prev => {
-            const next = { ...prev };
-            const spans = [...next[speaker]];
-
-            const span = spans[index];
-            // convention: disabled span = negative times
-            spans[index] = span[0] >= 0
-                ? [-span[0], -span[1]]
-                : [-span[0], -span[1]];
-
-            next[speaker] = spans;
-            return next;
-        });
+    function handleToggleSpan(speaker: string, index: number) {
+        setMutDiarisation(prev =>
+            toggleSpan(prev, speaker, index)
+        );
     }
 
     function toggleProp(propID: string) {
@@ -367,7 +372,7 @@ function App() {
             }
 
             // Recurse into precomposed
-            if (asset.propType === "precomposed") {
+            if (asset.propType === 'precomposed') {
                 return {
                     ...asset,
                     template: walkTemplate(asset.template),
@@ -389,6 +394,50 @@ function App() {
         });
     }
 
+    // # AUDIO
+    // ## DIARISATION
+
+    function getSpeakersForWord(
+        wordStart: number,
+        wordEnd: number,
+        diarisation: Record<string, Span[]>,
+        minOverlapRatio = 0.2
+    ): string[] {
+        const result: string[] = [];
+
+        const wordDuration = Math.max(0.001, wordEnd - wordStart);
+
+        for (const [speaker, spans] of Object.entries(diarisation)) {
+            let totalOverlap = 0;
+
+            for (const span of spans) {
+                totalOverlap += overlap(wordStart, wordEnd, span);
+            }
+
+            const ratio = totalOverlap / wordDuration;
+
+            if (ratio >= minOverlapRatio) {
+                result.push(speaker);
+            }
+        }
+
+        return result;
+    }
+
+    function handleWordToggle(
+        speaker: string,
+        word: { start: number; end: number },
+        exists: boolean,
+    ) {
+        setMutDiarisation(prev => {
+            return exists
+                ? removeSpan(prev, speaker, word)
+                : addSpan(prev, speaker, word);
+        });
+    }
+
+    // ## AUDIO PLAYBACK
+
     function playSpan(
         ctx: AudioContext,
         buffer: AudioBuffer,
@@ -406,7 +455,7 @@ function App() {
         return atTime + duration;
     }
 
-    function playSpans(spans?: number[][]) {
+    function playSpans(spans?: Span[]) {
         if (!audioData || !spans?.length) return;
 
         if (!audioCtxRef.current) {
@@ -425,9 +474,9 @@ function App() {
 
         let t = ctx.currentTime;
 
-        spans.forEach(([start, end]) => {
-            if (start < 0 || end < 0) return;
-            t = playSpan(ctx, buffer, start, end, t);
+        spans.forEach((span) => {
+            if (span.start < 0 || span.end < 0) return;
+            t = playSpan(ctx, buffer, span.start, span.end, t);
         });
     }
 
@@ -451,7 +500,7 @@ function App() {
 
                         <label>
                             <input
-                                type="checkbox"
+                                type='checkbox'
                                 checked={overrideVideo === 'fireplace'}
                                 onChange={() => setOverrideVideo(prev => prev !== 'fireplace' ? 'fireplace' : null)}
                             />
@@ -459,7 +508,7 @@ function App() {
                         </label>
                         <label>
                             <input
-                                type="checkbox"
+                                type='checkbox'
                                 checked={overrideVideo === 'static'}
                                 onChange={() => setOverrideVideo(prev => prev !== 'static' ? 'static' : null)}
                             />
@@ -541,56 +590,148 @@ function App() {
 
                     <div className='section'>
                         <h2>Controls</h2>
-                        <div>
+                        <div className='scroller'>
                             <h3>Audio</h3>
                             {isDiarisingRef.current ? (
                                 'Diarising...'
                             ) : (
-                                <div className='audioList'>
-                                    <ul>
-                                        {Object.entries(mutDiarisation).map(([key, value]) => (
-                                            <li className='audioItem' key={key}>
-                                                <span className='speakerLabel'>{key}</span>
-                                                <div className='audioControls'>
-                                                    {value.map((v, i) => {
-                                                        const disabled = v[0] < 0 || v[1] < 0;
-                                                        return (
-                                                            <span
-                                                                key={i}
-                                                                className={`audioChip ${disabled ? 'disabled' : 'enabled'}`}
-                                                                onClick={() => toggleSpan(key, i)}
+                                <>
+                                    <h3>Transcript</h3>
+                                    <div className='transcript'>
+                                        {transcript.map((t, i) => {
+                                            const speakers = getSpeakersForWord(
+                                                t.start,
+                                                t.end,
+                                                mutDiarisation,
+                                            );
+
+                                            const colour =
+                                                speakers.length === 1
+                                                    ? speakerColours[speakers[0]] ?? '#999'
+                                                    : '#999';
+
+                                            return (
+                                                <Tooltip key={i} placement='top' enableClick={true} enableHover={true}>
+                                                    <TooltipTrigger asChild>
+                                                        <span
+                                                            className={`word ${speakers.length > 1 ? 'multiSpeaker' : ''}`}
+                                                            style={{
+                                                                color: colour,
+                                                            }}
+                                                        >
+                                                            {t.word}{' '}
+                                                        </span>
+                                                    </TooltipTrigger>
+
+                                                    <TooltipContent>
+                                                        <div className='speakerPicker'>
+                                                            {Object.keys(mutDiarisation).map(speaker => {
+                                                                const speakerColour = speakerColours[speaker] ?? '#999';
+
+                                                                const isActive = speakers.includes(speaker);
+
+                                                                return (
+                                                                    <div
+                                                                        key={speaker}
+                                                                        className={`speakerOption ${isActive ? 'active' : ''}`}
+                                                                        onClick={() =>
+                                                                            handleWordToggle(
+                                                                                speaker, { start: t.start, end: t.end },
+                                                                                isActive,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <div
+                                                                            className='colourBox'
+                                                                            style={{ background: speakerColour }}
+                                                                        />
+
+                                                                        <span>{speaker}</span>
+
+                                                                        {isActive && <span className='check'>✓</span>}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className='audioList'>
+                                        <ul>
+                                            {Object.entries(mutDiarisation).map(([speaker, spans]) => {
+                                                const colour = speakerColours[speaker] ?? '#999';
+
+                                                return (
+                                                    <li className='audioItem' key={speaker}>
+                                                        <span
+                                                            className='speakerLabel'
+                                                            style={{ color: colour }}
+                                                        >
+                                                            {speaker}
+                                                        </span>
+
+                                                        <div className='audioControls'>
+                                                            {spans.map((span, i) => {
+                                                                const disabled = span.start < 0 || span.end < 0;
+
+                                                                return (
+                                                                    <span
+                                                                        key={i}
+                                                                        className={`audioChip ${disabled ? 'disabled' : 'enabled'}`}
+                                                                        style={{
+                                                                            borderColor: colour,
+                                                                            color: disabled ? '#666' : colour
+                                                                        }}
+                                                                        onClick={() => handleToggleSpan(speaker, i)}
+                                                                    >
+                                                                        [{Math.abs(span.start)}–{Math.abs(span.end)}]
+                                                                    </span>
+                                                                );
+                                                            })}
+
+                                                            <select
+                                                                value={
+                                                                    Object.entries(speakerMap).find(
+                                                                        ([_, mapped]) => mapped === speaker
+                                                                    )?.[0] ?? 'none'
+                                                                }
+                                                                onChange={(e) => {
+                                                                    const chosenCharacter = e.target.value;
+                                                                    setSpeakerMap((prev) => ({
+                                                                        ...prev,
+                                                                        [chosenCharacter]: speaker
+                                                                    }));
+                                                                }}
                                                             >
-                                                                [{Math.abs(v[0])}–{Math.abs(v[1])}]
-                                                            </span>
-                                                        );
-                                                    })}
-                                                    <select
-                                                        value={Object.entries(speakerMap).find(([_, speaker]) => speaker === key)?.[0] ?? 'none'}
-                                                        onChange={(e) => {
-                                                            const chosenCharacter = e.target.value;
-                                                            setSpeakerMap(prev => ({ ...prev, [chosenCharacter]: key }));
-                                                        }}
-                                                    >
-                                                        {Object.keys(speakerMap).map(character => (
-                                                            <option key={character} value={character}>
-                                                                {character}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <button onClick={() => addSpan(key)}>
-                                                    Add Span
-                                                </button>
-                                                <button onClick={() => playSpans(mutDiarisation[key])}>
-                                                    ▶ Play
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                    <button onClick={addSpeaker}>
-                                        Add Speaker
-                                    </button>
-                                </div>
+                                                                {Object.keys(speakerMap).map((character) => (
+                                                                    <option key={character} value={character}>
+                                                                        {character}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+
+                                                        <div className='audioActions'>
+                                                            <button onClick={() => handleAddSpan(speaker)}>
+                                                                Add Span
+                                                            </button>
+
+                                                            <button onClick={() => playSpans(spans)}>
+                                                                ▶ Play
+                                                            </button>
+                                                        </div>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+
+                                        <button onClick={addSpeaker}>
+                                            Add Speaker
+                                        </button>
+                                    </div>
+                                </>
                             )}
                         </div>
                         <div>

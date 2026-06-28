@@ -31,10 +31,10 @@ def diarise(audioPath: str, hfToken: str, device, numSpeakers: int | None):
 
     for turn, _, speaker in diarisation.itertracks(yield_label=True):
         segmentCount += 1
-        output.setdefault(speaker, []).append([
-            round(turn.start, 3),
-            round(turn.end, 3)
-        ])
+        output.setdefault(speaker, []).append({
+            'start': round(turn.start, 3),
+            'end': round(turn.end, 3),
+        })
 
     print(f'[INFO] Segments: {segmentCount}', file=sys.stderr)
 

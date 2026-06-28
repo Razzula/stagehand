@@ -5,12 +5,13 @@ import { calculateMoonPhase } from '../data/background';
 import { Template } from './Template';
 import { Prop, Scene, Script, StageDirection } from './stage';
 import { STAGEHAND_DIR } from '../App';
+import { Span } from '../utils';
 
 export function scriptFromTemplate(
     template: Template,
     customAssets: CustomVideoAsset[],
     frame: number, _frameTimeSec: number,
-    audioSplit?: Record<string, number[][] | undefined>,
+    audioSplit?: Record<string, Span[] | undefined>,
     audioVolume?: Record<string, number>,
     prngs?: Record<string, Blinker>,
     frameW?: number, frameH?: number,
@@ -296,7 +297,7 @@ export async function sceneFromTemplate(
     customAssets: CustomVideoAsset[],
     audioTrack: string,
     audioData: Float32Array | null,
-    audioSplit: Record<string, number[][] | undefined>,
+    audioSplit: Record<string, Span[] | undefined>,
     datetime?: Date,
 ): Promise<Scene> {
     const props: Record<string, Prop> = {};
@@ -558,13 +559,13 @@ function computeRMSPerFrame(samples: Float32Array | null, sampleRate: number, fp
     return volumes;
 }
 
-function isWithinBounds(audioSplit: number[][] | undefined, frame: number, fps: number): boolean {
+function isWithinBounds(audioSplit: Span[] | undefined, frame: number, fps: number): boolean {
     if (audioSplit === undefined) {
         return false;
     }
     for (const range of audioSplit) {
-        const startFrame = range[0] * fps;
-        const endFrame = range[1] * fps;
+        const startFrame = range.start * fps;
+        const endFrame = range.end * fps;
         if (frame >= startFrame && frame < endFrame) {
             return true;
         }
