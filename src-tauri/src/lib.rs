@@ -17,6 +17,9 @@ use image::{ImageFormat, RgbaImage};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
+mod cache;
+// use cache::{readCache, writeCache, hashAudioFile};
+
 #[derive(Deserialize, Serialize, Clone)]
 struct Scene {
     id: String,
@@ -507,53 +510,89 @@ async fn analyseAudio(
     println!("analyseAudio() called");
 
     let audio = TEMP_DIR.join("audio.wav");
+    let keyD = cache::hashAudioFile(
+        &audio,
+        &format!("diarise:{:?}", numSpeakers),
+    )?;
+    let keyT = cache::hashAudioFile(
+        &audio,
+        &format!("transcribe:{:?}", language),
+    )?;
 
-    println!("diarise.py called");
-    let mut diarise = std::process::Command::new("./src-py/.diarise/bin/python3");
-    diarise
-        .arg("src-py/diarise.py")
-        .arg(&audio)
-        .arg(&*HF_TOKEN);
-    if let Some(n) = numSpeakers {
-        diarise.arg(n.to_string());
-    }
-    let diarisation = diarise
-        .output()
-        .map_err(|e| format!("Failed to spawn diarise.py: {e}"))?;
-    if !diarisation.status.success() {
-        return Err(format!(
-            "diarise.py failed:\n{}",
-            String::from_utf8_lossy(&diarisation.stderr)
-        ));
-    }
+    let speakers: serde_json::Value = if let Some(cached) =
+        cache::readCache(&keyD, "diarise")
+    {
+        serde_json::from_str(&cached)
+            .map_err(|e| format!("Cached diarise JSON invalid: {e}"))?
+    } else {
+        println!("diarise.py called");
 
-    println!("diarise stdout:\n{}", String::from_utf8_lossy(&diarisation.stdout));
-    println!("diarise stderr:\n{}", String::from_utf8_lossy(&diarisation.stderr));
-    let speakers: serde_json::Value = serde_json::from_slice(&diarisation.stdout)
-        .map_err(|e| format!("Invalid diarise JSON: {e}"))?;
+        let mut diarise = std::process::Command::new("./src-py/.diarise/bin/python3");
+        diarise
+            .arg("src-py/diarise.py")
+            .arg(&audio)
+            .arg(&*HF_TOKEN);
 
-    println!("transcribe.py called");
-    let mut transcribe = std::process::Command::new("./src-py/.transcribe/bin/python3");
-    transcribe
-        .arg("src-py/transcribe.py")
-        .arg(&audio);
-    if let Some(lang) = language {
-        transcribe.arg(lang);
-    }
-    let transcript = transcribe
-        .output()
-        .map_err(|e| format!("Failed to spawn transcribe.py: {e}"))?;
-    if !transcript.status.success() {
-        return Err(format!(
-            "transcribe.py failed:\n{}",
-            String::from_utf8_lossy(&transcript.stderr)
-        ));
-    }
+        if let Some(n) = numSpeakers {
+            diarise.arg(n.to_string());
+        }
 
-    println!("transcribe stdout:\n{}", String::from_utf8_lossy(&transcript.stdout));
-    println!("transcribe stderr:\n{}", String::from_utf8_lossy(&transcript.stderr));
-    let script: serde_json::Value = serde_json::from_slice(&transcript.stdout)
-        .map_err(|e| format!("Invalid transcription JSON: {e}"))?;
+        let diarisation = diarise
+            .output()
+            .map_err(|e| format!("Failed to spawn diarise.py: {e}"))?;
+
+        if !diarisation.status.success() {
+            return Err(format!(
+                "diarise.py failed:\n{}",
+                String::from_utf8_lossy(&diarisation.stderr)
+            ));
+        }
+
+        let raw = String::from_utf8_lossy(&diarisation.stdout).to_string();
+        let parsed: serde_json::Value = serde_json::from_str(&raw)
+            .map_err(|e| format!("Invalid diarise JSON: {e}"))?;
+
+        cache::writeCache(&keyD, "diarise", &raw)?;
+
+        parsed
+    };
+
+    let script: serde_json::Value = if let Some(cached) =
+        cache::readCache(&keyT, "transcribe")
+    {
+        serde_json::from_str(&cached)
+            .map_err(|e| format!("Cached transcript JSON invalid: {e}"))?
+    } else {
+        println!("transcribe.py called");
+
+        let mut transcribe = std::process::Command::new("./src-py/.transcribe/bin/python3");
+        transcribe
+            .arg("src-py/transcribe.py")
+            .arg(&audio);
+
+        if let Some(lang) = language {
+            transcribe.arg(lang);
+        }
+
+        let transcript = transcribe
+            .output()
+            .map_err(|e| format!("Failed to spawn transcribe.py: {e}"))?;
+
+        if !transcript.status.success() {
+            return Err(format!(
+                "transcribe.py failed:\n{}",
+                String::from_utf8_lossy(&transcript.stderr)
+            ));
+        }
+
+        let raw = String::from_utf8_lossy(&transcript.stdout).to_string();
+        let parsed: serde_json::Value = serde_json::from_str(&raw)
+            .map_err(|e| format!("Invalid transcription JSON: {e}"))?;
+
+        cache::writeCache(&keyT, "transcribe", &raw)?;
+
+        parsed
+    };
 
     Ok(serde_json::json!({
         "speakers": speakers,
